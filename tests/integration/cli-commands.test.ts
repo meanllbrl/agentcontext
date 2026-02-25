@@ -1,0 +1,382 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execSync } from 'node:child_process';
+
+const CLI = join(__dirname, '..', '..', 'dist', 'index.js');
+
+function makeTmpDir(): string {
+  const raw = join(tmpdir(), `ac-cli-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(raw, { recursive: true });
+  return realpathSync(raw);
+}
+
+function run(cmd: string, cwd: string): string {
+  try {
+    return execSync(`node ${CLI} ${cmd} 2>&1`, { cwd, encoding: 'utf-8', timeout: 10000 });
+  } catch (e: any) {
+    return (e.stdout ?? '') + (e.stderr ?? '');
+  }
+}
+
+describe('CLI commands (integration)', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  describe('init', () => {
+    it('creates _agent_context/ with core files', () => {
+      const output = run('init --yes --name "Test" --description "Test project" --stack "Node.js" --priority "Ship v1"', tmpDir);
+      expect(output).toContain('initialized');
+      expect(existsSync(join(tmpDir, '_agent_context', 'core', '0.soul.md'))).toBe(true);
+      expect(existsSync(join(tmpDir, '_agent_context', 'core', '1.user.md'))).toBe(true);
+      expect(existsSync(join(tmpDir, '_agent_context', 'core', '2.memory.md'))).toBe(true);
+      expect(existsSync(join(tmpDir, '_agent_context', 'core', 'CHANGELOG.json'))).toBe(true);
+      expect(existsSync(join(tmpDir, '_agent_context', 'state'))).toBe(true);
+      expect(existsSync(join(tmpDir, '_agent_context', 'knowledge'))).toBe(true);
+    });
+
+    it('refuses to init if _agent_context/ already exists', () => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      const output = run('init --yes --name "Test2" --description "d" --stack "Node" --priority "p"', tmpDir);
+      expect(output).toContain('already exists');
+    });
+
+    it('soul file contains project name', () => {
+      run('init --yes --name "MyProject" --description "A cool project" --stack "TypeScript" --priority "MVP"', tmpDir);
+      const soul = readFileSync(join(tmpDir, '_agent_context', 'core', '0.soul.md'), 'utf-8');
+      expect(soul).toContain('MyProject');
+    });
+  });
+
+  describe('tasks', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+    });
+
+    it('creates a task', () => {
+      const output = run('tasks create my-task --description "Do the thing" --priority high', tmpDir);
+      expect(output).toContain('created');
+      expect(existsSync(join(tmpDir, '_agent_context', 'state', 'my-task.md'))).toBe(true);
+    });
+
+    it('logs progress to a task', () => {
+      run('tasks create log-test --description "Test" --priority low', tmpDir);
+      run('tasks log log-test "Implemented feature X"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'log-test.md'), 'utf-8');
+      expect(content).toContain('Implemented feature X');
+    });
+
+    it('completes a task', () => {
+      run('tasks create done-task --description "Test" --priority low', tmpDir);
+      run('tasks complete done-task "All done"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'done-task.md'), 'utf-8');
+      expect(content).toContain('status: completed');
+      expect(content).toContain('All done');
+    });
+  });
+
+  describe('features', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+    });
+
+    it('creates a feature', () => {
+      const output = run('features create auth --why "Users need to log in"', tmpDir);
+      expect(output).toContain('created');
+      expect(existsSync(join(tmpDir, '_agent_context', 'core', 'features', 'auth.md'))).toBe(true);
+    });
+
+    it('inserts into feature changelog', () => {
+      run('features create auth --why "Login"', tmpDir);
+      run('features insert auth changelog "Added JWT middleware"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'core', 'features', 'auth.md'), 'utf-8');
+      expect(content).toContain('Added JWT middleware');
+    });
+  });
+
+  describe('knowledge', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+    });
+
+    it('creates a knowledge file with proper YAML (no injection)', () => {
+      const output = run('knowledge create "test-topic" --description "A test topic" --tags "ai,agent" --content "Some research"', tmpDir);
+      expect(output).toContain('created');
+      const file = join(tmpDir, '_agent_context', 'knowledge', 'test-topic.md');
+      const content = readFileSync(file, 'utf-8');
+      expect(content).toContain('name: test-topic');
+      expect(content).toContain('Some research');
+    });
+
+    it('handles special characters in name without breaking YAML', () => {
+      const output = run('knowledge create "test: value" --description "Has colon" --tags "test" --content "Content"', tmpDir);
+      expect(output).toContain('created');
+      const file = join(tmpDir, '_agent_context', 'knowledge', 'test-value.md');
+      const content = readFileSync(file, 'utf-8');
+      // Should be valid YAML — gray-matter handles the quoting
+      expect(content).toContain('test: value');
+    });
+
+    it('creates knowledge file with pinned field', () => {
+      run('knowledge create "pinned-test" --description "Test" --tags "test" --content "Content"', tmpDir);
+      const file = join(tmpDir, '_agent_context', 'knowledge', 'pinned-test.md');
+      const content = readFileSync(file, 'utf-8');
+      expect(content).toContain('pinned: false');
+    });
+
+    it('lists knowledge index in plain mode', () => {
+      run('knowledge create "test-topic" --description "A test topic" --tags "ai,agent" --content "Some research"', tmpDir);
+      const output = run('knowledge index --plain', tmpDir);
+      expect(output).toContain('test-topic: A test topic [ai, agent]');
+    });
+
+    it('shows empty message when no knowledge files exist', () => {
+      const output = run('knowledge index --plain', tmpDir);
+      expect(output).toContain('No knowledge files found');
+    });
+
+    it('filters knowledge index by tag', () => {
+      run('knowledge create "auth-flow" --description "Auth system" --tags "api,security" --content "Auth details"', tmpDir);
+      run('knowledge create "ui-guide" --description "UI patterns" --tags "frontend,design" --content "UI details"', tmpDir);
+      run('knowledge create "db-schema" --description "Database schema" --tags "api,database" --content "DB details"', tmpDir);
+
+      const apiOutput = run('knowledge index --plain --tag api', tmpDir);
+      expect(apiOutput).toContain('auth-flow');
+      expect(apiOutput).toContain('db-schema');
+      expect(apiOutput).not.toContain('ui-guide');
+
+      const frontendOutput = run('knowledge index --plain --tag frontend', tmpDir);
+      expect(frontendOutput).toContain('ui-guide');
+      expect(frontendOutput).not.toContain('auth-flow');
+    });
+
+    it('shows empty message when tag filter matches nothing', () => {
+      run('knowledge create "test" --description "Test" --tags "api" --content "C"', tmpDir);
+      const output = run('knowledge index --plain --tag nonexistent', tmpDir);
+      expect(output).toContain('No knowledge files found matching tag "nonexistent"');
+    });
+  });
+
+  describe('install-skill', () => {
+    it('creates settings.json with SessionStart and Stop hooks', () => {
+      run('install-skill', tmpDir);
+      const settingsPath = join(tmpDir, '.claude', 'settings.json');
+      expect(existsSync(settingsPath)).toBe(true);
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+      expect(settings.hooks).toBeDefined();
+      expect(settings.hooks.SessionStart).toBeDefined();
+      expect(settings.hooks.SessionStart).toHaveLength(1);
+      expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('npx agentcontext hook session-start');
+      expect(settings.hooks.Stop).toBeDefined();
+      expect(settings.hooks.Stop).toHaveLength(1);
+      expect(settings.hooks.Stop[0].hooks[0].command).toBe('npx agentcontext hook stop');
+    });
+
+    it('preserves existing settings when adding hooks', () => {
+      // Create existing settings with some other config
+      mkdirSync(join(tmpDir, '.claude'), { recursive: true });
+      writeFileSync(join(tmpDir, '.claude', 'settings.json'), JSON.stringify({
+        permissions: { allow: ['Bash(npm test:*)'] },
+        hooks: {
+          PostToolUse: [{ matcher: 'Edit', hooks: [{ type: 'command', command: 'echo done' }] }],
+        },
+      }, null, 2), 'utf-8');
+
+      run('install-skill', tmpDir);
+      const settings = JSON.parse(readFileSync(join(tmpDir, '.claude', 'settings.json'), 'utf-8'));
+
+      // Existing settings preserved
+      expect(settings.permissions.allow).toContain('Bash(npm test:*)');
+      expect(settings.hooks.PostToolUse).toHaveLength(1);
+      // Hooks added
+      expect(settings.hooks.SessionStart).toHaveLength(1);
+      expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('npx agentcontext hook session-start');
+      expect(settings.hooks.Stop).toHaveLength(1);
+    });
+
+    it('migrates old snapshot hook to session-start hook', () => {
+      // Create settings with old hook
+      mkdirSync(join(tmpDir, '.claude'), { recursive: true });
+      writeFileSync(join(tmpDir, '.claude', 'settings.json'), JSON.stringify({
+        hooks: {
+          SessionStart: [{
+            matcher: 'startup|resume|compact|clear',
+            hooks: [{ type: 'command', command: 'npx agentcontext snapshot', timeout: 10 }],
+          }],
+        },
+      }, null, 2), 'utf-8');
+
+      run('install-skill', tmpDir);
+      const settings = JSON.parse(readFileSync(join(tmpDir, '.claude', 'settings.json'), 'utf-8'));
+
+      // Old hook replaced, not duplicated
+      expect(settings.hooks.SessionStart).toHaveLength(1);
+      expect(settings.hooks.SessionStart[0].hooks[0].command).toBe('npx agentcontext hook session-start');
+      // Stop hook also added
+      expect(settings.hooks.Stop).toHaveLength(1);
+    });
+
+    it('does not duplicate hooks on repeated install', () => {
+      run('install-skill', tmpDir);
+      run('install-skill', tmpDir);
+      const settings = JSON.parse(readFileSync(join(tmpDir, '.claude', 'settings.json'), 'utf-8'));
+      expect(settings.hooks.SessionStart).toHaveLength(1);
+      expect(settings.hooks.Stop).toHaveLength(1);
+    });
+  });
+
+  describe('snapshot', () => {
+    it('returns empty when no _agent_context/', () => {
+      const output = run('snapshot', tmpDir);
+      expect(output.trim()).toBe('');
+    });
+
+    it('returns full context after init and task creation', () => {
+      run('init --yes --name "Snapshot Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      run('tasks create my-task --description "Do stuff" --priority high', tmpDir);
+      const output = run('snapshot', tmpDir);
+      expect(output).toContain('# Agent Context');
+      expect(output).toContain('Snapshot Test');
+      expect(output).toContain('my-task');
+    });
+  });
+
+  describe('doctor', () => {
+    it('reports results on initialized project', () => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      const output = run('doctor', tmpDir);
+      expect(output).toContain('ok');
+      // Fresh init may have placeholder warnings, but no missing required files
+      expect(output).not.toContain('Missing: core/0.soul.md');
+      expect(output).not.toContain('Missing: core/1.user.md');
+      expect(output).not.toContain('Missing: core/2.memory.md');
+    });
+
+    it('reports error when _agent_context/ does not exist', () => {
+      const output = run('doctor', tmpDir);
+      expect(output).toContain('not found');
+    });
+
+    it('reports error on malformed JSON', () => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      writeFileSync(join(tmpDir, '_agent_context', 'core', 'CHANGELOG.json'), '{ broken', 'utf-8');
+      const output = run('doctor', tmpDir);
+      expect(output).toContain('Malformed JSON');
+    });
+
+    it('reports warning on empty core file', () => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      writeFileSync(join(tmpDir, '_agent_context', 'core', '0.soul.md'), '', 'utf-8');
+      const output = run('doctor', tmpDir);
+      expect(output).toContain('Empty file');
+    });
+
+    it('reports warning on placeholder content', () => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      writeFileSync(join(tmpDir, '_agent_context', 'core', '0.soul.md'), '(Add your principles here)', 'utf-8');
+      const output = run('doctor', tmpDir);
+      expect(output).toContain('placeholder');
+    });
+  });
+
+  describe('snapshot --tokens', () => {
+    it('outputs a number estimating token count', () => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      const output = run('snapshot --tokens', tmpDir);
+      const num = parseInt(output.trim(), 10);
+      expect(num).toBeGreaterThan(0);
+      expect(num).toBeLessThan(100000);
+    });
+
+    it('outputs nothing when no _agent_context/', () => {
+      const output = run('snapshot --tokens', tmpDir);
+      expect(output.trim()).toBe('');
+    });
+  });
+
+  describe('feature section validation', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+      run('features create auth --why "Login"', tmpDir);
+    });
+
+    it('rejects unknown section name', () => {
+      const output = run('features insert auth changlog "Some content"', tmpDir);
+      expect(output).toContain('Unknown section');
+      expect(output).toContain('changelog');
+    });
+
+    it('accepts valid section names', () => {
+      const output = run('features insert auth notes "Some note"', tmpDir);
+      expect(output).toContain('Inserted');
+    });
+  });
+
+  describe('ambiguous file matching', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+    });
+
+    it('errors on ambiguous task prefix match', () => {
+      run('tasks create auth-ui --description "UI" --priority low', tmpDir);
+      run('tasks create auth-backend --description "Backend" --priority low', tmpDir);
+      const output = run('tasks log auth- "Some progress"', tmpDir);
+      expect(output).toContain('Ambiguous');
+      expect(output).toContain('auth-ui');
+      expect(output).toContain('auth-backend');
+    });
+
+    it('errors on ambiguous feature prefix match', () => {
+      run('features create auth-ui --why "UI"', tmpDir);
+      run('features create auth-backend --why "Backend"', tmpDir);
+      const output = run('features insert auth- changelog "Some change"', tmpDir);
+      expect(output).toContain('Ambiguous');
+      expect(output).toContain('auth-ui');
+      expect(output).toContain('auth-backend');
+    });
+
+    it('resolves exact match without ambiguity', () => {
+      run('tasks create auth --description "Auth" --priority low', tmpDir);
+      run('tasks create auth-ui --description "UI" --priority low', tmpDir);
+      const output = run('tasks log auth "Exact match works"', tmpDir);
+      expect(output).toContain('Log entry added');
+    });
+  });
+
+  describe('end-to-end flow', () => {
+    it('init → task create → task log → snapshot shows everything', () => {
+      // Init
+      run('init --yes --name "E2E" --description "End to end test" --stack "TypeScript" --priority "v1"', tmpDir);
+
+      // Create task
+      run('tasks create implement-auth --description "Build authentication" --priority high', tmpDir);
+
+      // Log progress
+      run('tasks log implement-auth "Added JWT middleware"', tmpDir);
+
+      // Add changelog entry directly (core changelog add is interactive-only)
+      const changelogPath = join(tmpDir, '_agent_context', 'core', 'CHANGELOG.json');
+      const changelog = JSON.parse(readFileSync(changelogPath, 'utf-8'));
+      changelog.unshift({ date: '2026-02-24', type: 'feat', scope: 'auth', description: 'Added JWT authentication', breaking: false });
+      writeFileSync(changelogPath, JSON.stringify(changelog, null, 2), 'utf-8');
+
+      // Create feature
+      run('features create authentication --why "Users need to log in securely"', tmpDir);
+
+      // Snapshot should contain all of this
+      const snapshot = run('snapshot', tmpDir);
+      expect(snapshot).toContain('E2E');
+      expect(snapshot).toContain('implement-auth');
+      expect(snapshot).toContain('todo');
+      expect(snapshot).toContain('authentication');
+    });
+  });
+});

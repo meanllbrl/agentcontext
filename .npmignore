@@ -1,0 +1,14 @@
+src/
+tests/
+scripts/
+tsconfig.json
+tsup.config.ts
+.gitignore
+_agent_context/
+.claude/
+temp.md
+complete_plan.md
+image.png
+*.test.ts
+__tests__/
+.DS_Store

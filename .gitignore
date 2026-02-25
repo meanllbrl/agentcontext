@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.dist/
+*.tsbuildinfo
+.DS_Store
+_agent_context/
+.claude/
+temp.md
+complete_plan.md

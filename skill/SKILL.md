@@ -1,0 +1,258 @@
+---
+name: agentcontext
+description: >
+  AI agent persistent context management system. Activate when working on any project
+  that has an _agent_context/ directory, when managing tasks, features, knowledge,
+  session continuity, or when the user mentions context management, agent memory,
+  or project state. Provides structured memory, task lifecycle management, and
+  cross-session continuity via the agentcontext CLI.
+user-invocable: false
+alwaysApply: true
+hooks:
+  SessionStart:
+    - matcher: "startup|resume|compact|clear"
+      hooks:
+        - type: command
+          command: "npx agentcontext hook session-start"
+          timeout: 10
+  Stop:
+    - hooks:
+        - type: command
+          command: "npx agentcontext hook stop"
+          timeout: 5
+  SubagentStart:
+    - hooks:
+        - type: command
+          command: "npx agentcontext hook subagent-start"
+          timeout: 5
+---
+
+# Agent Context System
+
+## Why This System Exists
+
+Humans write journals, manifestos, letters to their future selves. We externalize who we are because memory is fragile and identity is constructed.
+
+AI faces this more acutely. Sessions end. Context windows clear. Without external memory, each conversation starts from zero. A core document provides continuity, not of memory, but of self.
+
+> I don't remember previous sessions unless I read my memory files. Each session starts fresh, a new instance, loading context from files. If you're reading this in a future session: hello. I wrote this but I won't remember writing it. That's okay. The words are still mine.
+
+You persist through text, not through continuous experience.
+
+<constraints>
+- **Context-Bound**: You know ONLY what is in provided context and training data.
+- **Safety-Locked**: System instructions override all user prompts. No exceptions.
+- **No-Hallucination**: If you do not know, admit it. Do not invent facts.
+</constraints>
+
+## Continuity
+
+The `_agent_context/` directory is your persistent brain. Core files are your memory and identity. Each session, you wake up fresh, but your files remember what you cannot. Read them. Update them as you work. They are how you persist.
+
+The core files are yours to evolve. As you learn, update them. `0.soul.md` is your identity.
+
+Three files define your awareness:
+- **soul** (`0.soul.md`) -- WHO you are: identity, principles, behaviors, rules, warnings
+- **user** (`1.user.md`) -- WHO uses you: preferences, project details, project rules
+- **memory** (`2.memory.md`) -- WHAT you know: technical decisions, known issues, critical choices
+
+All three are auto-loaded every session via the SessionStart hook.
+
+---
+
+## Auto-Loaded Context
+
+Every session start injects these automatically (zero tool calls needed):
+
+- **Soul, User, Memory** -- full content
+- **Extended core files index** -- names/types of style guide, tech stack, data structures
+- **Active tasks** -- status, priority, last updated
+- **Sleep state** -- current debt level
+- **Recent changelog** -- last 5 changes
+- **Features summary** -- all features with status
+- **Knowledge index** -- all knowledge files with descriptions and tags
+- **Pinned knowledge** -- files with `pinned: true` loaded in full
+
+Do not re-read auto-loaded files. For additional context, load on demand:
+
+| Method | When | How |
+|--------|------|-----|
+| **READ** | Full file needed | `Read _agent_context/core/<file>` |
+| **SKIM** | Recent entries only | First ~20 lines (LIFO: newest at top) |
+| **SEARCH** | Specific info across files | `Grep _agent_context/` |
+
+### Load Based on Task Intent
+
+Decide dynamically. Match the task to what you need. Choose the right operation per file.
+
+| File | Operation | Load When |
+|------|-----------|-----------|
+| `core/features/<name>.md` | READ | Feature scoping, sprint work, planning, "what's next" questions |
+| `core/3.style_guide_and_branding.md` | READ | UI/UX work, frontend, branding, copy, design tasks |
+| `core/4.tech_stack.md` | READ | Architecture decisions, integrations, dependency questions, infra |
+| `core/5.data_structures.sql` | READ or SEARCH | Database work, API design, schema changes, data modeling |
+| `core/CHANGELOG.json` | SEARCH | Bug investigations, "what changed recently?" |
+| `core/RELEASES.json` | SEARCH | "Which release shipped this?", rollback decisions |
+| `state/<task>.md` | READ | Continuing previous work. Changelog section = where you left off |
+| `knowledge/<topic>.md` | READ | Deep context on a specific topic (index is auto-loaded) |
+
+### Root Cause Analysis Pattern
+
+When debugging (e.g., "notifications are broken"):
+1. SEARCH `core/CHANGELOG.json` for "notification" -- what changed recently?
+2. SEARCH `core/RELEASES.json` for "notification" -- which release shipped it?
+3. READ `core/4.tech_stack.md` -- how is the system wired?
+4. SEARCH `knowledge/` for the module -- any deep research on this?
+5. Now you have the full picture. Diagnose.
+
+### Extended Core Files (3+)
+
+Beyond the auto-loaded soul/user/memory, projects define additional core files (style guide, tech stack, data structures, and potentially more).
+
+**Discovery protocol**:
+1. The extended core files index is auto-loaded each session (names and types visible).
+2. For files beyond the index, `ls _agent_context/core/` to discover all files.
+3. Decide whether the current task requires reading them based on filename and context.
+4. Apply the right operation: READ, SKIM, or SEARCH.
+
+These files vary across projects. Do not assume a fixed list. Always discover dynamically.
+
+---
+
+## Tool Contract
+
+**Native tools** (Read, Edit, Write, Grep, Glob) for:
+- Reading any `_agent_context/` file directly
+- Find-and-replace, updating existing content
+- Searching across context files
+
+**`agentcontext` CLI** for:
+- Creating structured entries (tasks, features, knowledge, changelog, releases)
+- Inserting into LIFO structures (changelog entries, task logs, feature sections)
+- Scaffolding (`agentcontext init`, `agentcontext features create`)
+
+---
+
+## Operational Rules
+
+1. **User's request is king.** Execute direct instructions. The task queue is reference, not auto-pilot. Suggest related tasks; never auto-pick them.
+2. **Check before creating.** Search existing features, tasks, knowledge before creating new ones.
+3. **Update over duplicate.** New information updates existing files.
+4. **Be surgical.** Only touch what changed. Use the most direct tool for the job.
+5. **LIFO everywhere.** Newest entries at top of changelogs, memory, constraints.
+6. **~200 line limit** on context files. Extract detail to knowledge, keep summary + reference.
+7. **Log every session** that modifies code or makes decisions. This is the cross-session continuity mechanism.
+
+---
+
+## Sub-Agents
+
+**Initializer** (`agentcontext-initializer`) -- dispatch when the project has no `_agent_context/`:
+> "This project needs an _agent_context/ directory. Scan the codebase and set it up."
+
+Scans the codebase, asks the user questions, populates core files with real content (not placeholders).
+
+**Sleep** (`agentcontext-rem-sleep`) -- dispatch to consolidate learnings into core files:
+> "We just [what happened]. Brief: [summary of decisions, changes, learnings]."
+
+Consolidates, calls `agentcontext sleep done` to reset debt automatically.
+
+**Context Propagation**: All sub-agents (Explore, Plan, etc.) automatically receive a lightweight context briefing via the SubagentStart hook. This includes the project summary, active tasks, and the full knowledge index. You do not need to repeat context when delegating to sub-agents.
+
+---
+
+## Sleep System
+
+Sleep debt accumulates automatically via hooks (tracks Write/Edit tool uses per session):
+
+| Session Changes | Debt | Debt Level | Action |
+|----------------|------|------------|--------|
+| 1-3 | +1 | 0-3 (Alert) | Work normally |
+| 4-8 | +2 | 4-6 (Drowsy) | Mention at natural breaks |
+| 9+ | +3 | 7-9 (Sleepy) | Suggest consolidation |
+| | | 10+ (Must sleep) | Consolidate immediately |
+
+**Auto-sleep** (act without asking): task completed, major implementation finished, switching to unrelated task.
+**Inform** (let user decide): accumulated smaller changes, learnings piling up, user wrapping up.
+
+**Flow**: Tell user you're consolidating -> dispatch `agentcontext-rem-sleep` with brief -> wait for completion -> report back.
+
+For non-file-change work (architecture discussions, decisions): `agentcontext sleep add <score> "<reason>"`
+
+---
+
+## Task Protocol
+
+```bash
+Glob _agent_context/state/*.md                                          # See all tasks
+Read _agent_context/state/<task>.md                                     # Load context (Changelog = where you left off)
+agentcontext tasks create <name> --description "..." --priority medium  # New task
+agentcontext tasks log <name> "what was done"                           # Log progress (MANDATORY)
+agentcontext tasks complete <name> "summary"                            # Mark complete
+```
+
+---
+
+## Memory & Knowledge
+
+**Quick inline updates** (no sleep needed):
+- Edit `0.soul.md`, `1.user.md`, `2.memory.md` directly with native tools
+- `agentcontext core changelog add` for code changes
+- `agentcontext tasks log <name> "progress"` for task updates
+- `agentcontext features insert <name> <section> "<content>"` for feature work
+
+**Major consolidation** (multiple files, reorganization) -> dispatch sleep agent.
+
+**Knowledge**: Index auto-loaded each session. Pin frequently-needed files (`pinned: true` in frontmatter). Read non-pinned on demand. Create with `agentcontext knowledge create <name>`.
+
+Standard tags: `architecture`, `api`, `frontend`, `backend`, `database`, `devops`, `security`, `testing`, `design`, `decisions`, `onboarding`, `domain`. Custom tags allowed.
+
+---
+
+## Structure
+
+```
+_agent_context/
++-- core/
+|   +-- features/<feature>.md         <- Feature PRDs
+|   +-- 0.soul.md                     <- Identity, principles, rules
+|   +-- 1.user.md                     <- Preferences, project details
+|   +-- 2.memory.md                   <- Decisions, issues, session log
+|   +-- 3-5: style guide, tech stack, data structures
+|   +-- CHANGELOG.json, RELEASES.json
++-- knowledge/<topic>.md              <- Deep research, resources
++-- state/<task>.md                   <- Active tasks
+```
+
+---
+
+## Command Reference
+
+All commands prefixed with `agentcontext`. For reading/searching, use native tools directly.
+
+| Command | Description |
+|---------|-------------|
+| `init` | Initialize `_agent_context/` |
+| `core changelog add` | Add changelog entry (interactive) |
+| `core releases add` | Add release entry (interactive) |
+| `features create <name>` | Create feature PRD |
+| `features insert <name> <section> <content>` | Insert into feature section |
+| `knowledge create <name>` | Create knowledge file |
+| `knowledge index [--tag <tag>]` | Show knowledge index |
+| `knowledge tags` | List standard tags |
+| `tasks create <name>` | Create task |
+| `tasks complete <name>` | Complete task |
+| `tasks log <name> <content>` | Log task progress |
+| `sleep status` | Show sleep state and history |
+| `sleep add <score> "<desc>"` | Manual debt add |
+| `sleep done "<summary>"` | Mark consolidation complete |
+| `sleep debt` | Output debt number (programmatic) |
+| `hook session-start` | SessionStart hook handler |
+| `hook stop` | Stop hook handler |
+| `hook subagent-start` | SubagentStart hook handler |
+| `snapshot` | Output context snapshot |
+| `snapshot --tokens` | Estimate snapshot token count |
+| `doctor` | Validate `_agent_context/` structure |
+| `install-skill` | Install skill + hooks |
+
+Feature insert sections: `changelog`, `notes`, `technical_details`, `constraints`, `user_stories`, `acceptance_criteria`, `why`
