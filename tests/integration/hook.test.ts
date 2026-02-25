@@ -693,4 +693,71 @@ describe('hook subagent-start (integration)', () => {
     expect(ctx_text).toContain('Sub-agent Briefing');
     expect(ctx_text).toContain('How to Use This Context');
   });
+
+  it('includes system structure with core file descriptions', () => {
+    const output = run('hook subagent-start', tmpDir);
+    const parsed = JSON.parse(output);
+    const ctx_text = parsed.hookSpecificOutput.additionalContext;
+    expect(ctx_text).toContain('Context System Structure');
+    expect(ctx_text).toContain('0.soul.md');
+    expect(ctx_text).toContain('1.user.md');
+    expect(ctx_text).toContain('2.memory.md');
+    expect(ctx_text).toContain('features/');
+    expect(ctx_text).toContain('Feature PRDs');
+  });
+
+  it('includes extended core files index', () => {
+    writeFileSync(join(ctx, 'core', '4.tech_stack.md'), [
+      '---',
+      'name: Tech Stack',
+      'type: reference',
+      'summary: TypeScript CLI with Node.js',
+      '---',
+      '# Tech Stack',
+      'Node.js + TypeScript',
+    ].join('\n'));
+
+    const output = run('hook subagent-start', tmpDir);
+    const parsed = JSON.parse(output);
+    const ctx_text = parsed.hookSpecificOutput.additionalContext;
+    expect(ctx_text).toContain('Extended Core Files');
+    expect(ctx_text).toContain('Tech Stack');
+    expect(ctx_text).toContain('TypeScript CLI with Node.js');
+  });
+
+  it('includes features in briefing with name, status, and why', () => {
+    mkdirSync(join(ctx, 'core', 'features'), { recursive: true });
+    writeFileSync(join(ctx, 'core', 'features', 'web-dashboard.md'), [
+      '---',
+      'status: active',
+      'tags: [frontend, architecture]',
+      'related_tasks: [web-dashboard]',
+      '---',
+      '',
+      '## Why',
+      '',
+      'Users need a visual interface to manage agent context without using the terminal.',
+      '',
+      '## User Stories',
+      '',
+      '- As a user, I want a Kanban board',
+    ].join('\n'));
+
+    const output = run('hook subagent-start', tmpDir);
+    const parsed = JSON.parse(output);
+    const ctx_text = parsed.hookSpecificOutput.additionalContext;
+    expect(ctx_text).toContain('## Features');
+    expect(ctx_text).toContain('web-dashboard');
+    expect(ctx_text).toContain('active');
+    expect(ctx_text).toContain('visual interface');
+    expect(ctx_text).toContain('Tasks: web-dashboard');
+  });
+
+  it('instructs to check feature PRDs first', () => {
+    const output = run('hook subagent-start', tmpDir);
+    const parsed = JSON.parse(output);
+    const ctx_text = parsed.hookSpecificOutput.additionalContext;
+    expect(ctx_text).toContain('Check feature PRDs first');
+    expect(ctx_text).toContain('_agent_context/core/features/');
+  });
 });

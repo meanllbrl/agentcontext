@@ -1,0 +1,94 @@
+@import './tokens.css';
+@import './reset.css';
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: hsl(287 100% 33% / 0.2);
+  color: var(--color-text);
+}
+
+/* ─── Page Title ─── */
+.page-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-5);
+  color: var(--color-text);
+}
+
+/* ─── Error States ─── */
+.error-state {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: hsl(0 70% 50% / 0.1);
+  color: hsl(0 70% 60%);
+  border: 1px solid hsl(0 70% 50% / 0.2);
+  font-size: var(--font-size-sm);
+}
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.error-boundary h1 {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-3);
+}
+
+.error-boundary p {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+  max-width: 480px;
+  word-break: break-word;
+}
+
+.error-boundary button {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-brand);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.error-boundary button:hover {
+  opacity: 0.9;
+}
+
+/* ─── Reduced Motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

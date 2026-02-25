@@ -1,0 +1,324 @@
+/* ─── Preview Container ─── */
+.sql-preview {
+  position: relative;
+  padding: var(--space-4);
+  overflow: auto;
+  flex: 1;
+  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.sql-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+/* ─── SVG Overlay ─── */
+.sql-preview-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sql-preview-line {
+  fill: none;
+  stroke: var(--color-brand-mid);
+  stroke-width: 2;
+  opacity: 0.6;
+}
+
+.sql-preview-line-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  fill: var(--color-text-secondary);
+}
+
+.sql-preview-line-label-bg {
+  fill: var(--color-bg);
+  rx: 3;
+  ry: 3;
+}
+
+.sql-preview-arrowhead {
+  fill: var(--color-brand-mid);
+  opacity: 0.6;
+}
+
+/* ─── Entity Grid ─── */
+.sql-preview-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-6);
+}
+
+/* ─── Entity Card ─── */
+.entity-card {
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast);
+}
+
+.entity-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.entity-card-header {
+  padding: var(--space-3) var(--space-4);
+  background: var(--gradient-brand-subtle);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.entity-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.entity-card-category-icon {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.entity-card-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-card-badge {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.entity-card-badge[data-storage="file"] {
+  background: hsl(220 90% 56% / 0.12);
+  color: hsl(220 90% 56%);
+}
+
+.entity-card-badge[data-storage="json"] {
+  background: hsl(38 80% 50% / 0.12);
+  color: hsl(38 80% 50%);
+}
+
+.entity-card-badge[data-storage="table"] {
+  background: hsl(142 71% 40% / 0.12);
+  color: hsl(142 71% 40%);
+}
+
+.entity-card-path {
+  padding: var(--space-1) var(--space-4);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-card-managed {
+  padding: var(--space-1) var(--space-4);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ─── Field List ─── */
+.entity-fields {
+  padding: var(--space-2) 0;
+}
+
+.entity-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  line-height: 1.6;
+  transition: background var(--transition-fast);
+}
+
+.entity-field:hover {
+  background: var(--color-bg-secondary);
+}
+
+.entity-field-icon {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  opacity: 0.8;
+}
+
+.entity-field-icon--key {
+  color: hsl(38 80% 50%);
+}
+
+.entity-field-icon--ref {
+  color: var(--color-brand-vivid);
+}
+
+.entity-field-name {
+  min-width: 90px;
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+}
+
+.entity-field-type {
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.entity-field-type[data-type="enum"] {
+  color: var(--color-brand-mid);
+}
+
+.entity-field-type[data-type="array"] {
+  color: hsl(220 90% 56%);
+}
+
+.entity-field-type[data-type="boolean"] {
+  color: hsl(142 71% 40%);
+}
+
+.entity-field-type[data-type="nullable"] {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.entity-field-type[data-type="date"] {
+  color: hsl(262 60% 55%);
+}
+
+/* ─── Enum Pills ─── */
+.entity-field-enum-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.entity-field-enum-pill {
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  background: hsl(278 72% 38% / 0.1);
+  color: var(--color-brand-mid);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* ─── Field Description ─── */
+.entity-field-desc {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-family);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Notes Section ─── */
+.entity-card-notes {
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.entity-card-note {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ─── Relationships Legend ─── */
+.sql-preview-legend {
+  position: relative;
+  z-index: 1;
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.sql-preview-legend-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+}
+
+.sql-preview-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sql-preview-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.sql-preview-legend-line {
+  width: 24px;
+  height: 2px;
+  background: var(--color-brand-mid);
+  opacity: 0.6;
+  border-radius: 1px;
+}
+
+.sql-preview-legend-cardinality {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-brand-vivid);
+  padding: 1px 4px;
+  background: hsl(287 100% 33% / 0.08);
+  border-radius: 3px;
+}

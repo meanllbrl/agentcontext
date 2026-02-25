@@ -10,6 +10,7 @@ import { registerSnapshotCommand } from './commands/snapshot.js';
 import { registerSleepCommand } from './commands/sleep.js';
 import { registerHookCommand } from './commands/hook.js';
 import { registerDoctorCommand } from './commands/doctor.js';
+import { registerDashboardCommand } from './commands/dashboard.js';
 import { startInteractive } from './interactive.js';
 import { renderBanner } from '../lib/pixel-banner.js';
 
@@ -49,6 +50,9 @@ ${chalk.bold('System')}
   ${chalk.magentaBright('hook')}              Hook handlers (stop, session-start, subagent-start) for Claude Code
   ${chalk.magentaBright('doctor')}            Validate _agent_context/ structure and report issues
 
+${chalk.bold('Dashboard')}
+  ${chalk.magentaBright('dashboard')}         Open the web dashboard in your browser
+
 ${chalk.dim('Run')} agentcontext ${chalk.dim('<command> --help')} ${chalk.dim('for details on a specific command.')}
 `;
 
@@ -76,6 +80,7 @@ export function createProgram(): Command {
   registerSleepCommand(program);
   registerHookCommand(program);
   registerDoctorCommand(program);
+  registerDashboardCommand(program);
 
   return program;
 }

@@ -1,10 +1,18 @@
 import { Command } from 'commander';
 import { join } from 'node:path';
-import { input, select } from '@inquirer/prompts';
+import { input, select, checkbox } from '@inquirer/prompts';
 import { ensureContextRoot } from '../../lib/context-path.js';
 import { insertToJsonArray } from '../../lib/json-file.js';
-import { today } from '../../lib/id.js';
-import { success } from '../../lib/format.js';
+import { generateId, today } from '../../lib/id.js';
+import { success, error, info, header, formatTable } from '../../lib/format.js';
+import {
+  getExistingReleases,
+  findUnreleasedTasks,
+  findUnreleasedFeatures,
+  findUnreleasedChangelog,
+} from '../../lib/release-discovery.js';
+import type { ReleaseEntry } from '../../lib/release-discovery.js';
+import { backPopulateFeatures } from '../../lib/release-backpopulate.js';
 
 export function registerCoreCommand(program: Command): void {
   const core = program
@@ -64,26 +72,186 @@ export function registerCoreCommand(program: Command): void {
 
   releases
     .command('add')
-    .description('Add a release entry')
-    .action(async () => {
+    .description('Create a release with auto-discovered tasks, features, and changelog entries')
+    .option('-V, --ver <version>', 'Version string (e.g., 1.2.0)')
+    .option('-s, --summary <summary>', 'Release summary')
+    .option('-y, --yes', 'Skip interactive selection, include all discovered items')
+    .action(async (opts) => {
       const root = ensureContextRoot();
-      const filePath = join(root, 'core', 'RELEASES.json');
+      const releasesPath = join(root, 'core', 'RELEASES.json');
+      const auto = !!opts.yes;
 
-      const version = await input({ message: 'Version (e.g., 1.2.0):' });
-      const summary = await input({ message: 'Summary:' });
-      const changesStr = await input({
-        message: 'Changes (comma-separated):',
-      });
-      const changes = changesStr.split(',').map((c) => c.trim()).filter(Boolean);
+      // 1. Version
+      const version = opts.ver ?? (auto ? '' : await input({ message: 'Version (e.g., 1.2.0):' }));
+      if (!version.trim()) {
+        error('Version is required.');
+        return;
+      }
 
-      insertToJsonArray(filePath, {
-        version,
+      // Check for duplicate version
+      const existing = getExistingReleases(root);
+      if (existing.some(r => r.version === version.trim())) {
+        error(`Release ${version} already exists.`);
+        return;
+      }
+
+      // 2. Summary
+      const summary = opts.summary ?? (auto ? '' : await input({ message: 'Summary:' }));
+
+      // 3. Breaking?
+      const breaking = auto
+        ? false
+        : await select({
+            message: 'Breaking change?',
+            choices: [
+              { value: false, name: 'No' },
+              { value: true, name: 'Yes' },
+            ],
+          });
+
+      // 4. Auto-discover tasks
+      const unreleasedTasks = findUnreleasedTasks(root);
+      let selectedTaskIds: string[] = [];
+      if (unreleasedTasks.length > 0) {
+        if (auto) {
+          selectedTaskIds = unreleasedTasks.map(t => t.id);
+        } else {
+          selectedTaskIds = await checkbox({
+            message: `Include completed tasks? (${unreleasedTasks.length} unreleased)`,
+            choices: unreleasedTasks.map(t => ({
+              value: t.id,
+              name: `${t.slug} - ${t.name}`,
+              checked: true,
+            })),
+          });
+        }
+      }
+
+      // 5. Auto-discover features
+      const unreleasedFeatures = findUnreleasedFeatures(root);
+      let selectedFeatureIds: string[] = [];
+      if (unreleasedFeatures.length > 0) {
+        if (auto) {
+          selectedFeatureIds = unreleasedFeatures.map(f => f.id);
+        } else {
+          selectedFeatureIds = await checkbox({
+            message: `Include unreleased features? (${unreleasedFeatures.length} available)`,
+            choices: unreleasedFeatures.map(f => ({
+              value: f.id,
+              name: `${f.slug} (${f.status})`,
+              checked: true,
+            })),
+          });
+        }
+      }
+
+      // 6. Auto-discover changelog entries
+      const unreleasedChangelog = findUnreleasedChangelog(root);
+      let selectedChangelog: typeof unreleasedChangelog = [];
+      if (unreleasedChangelog.length > 0) {
+        if (auto) {
+          selectedChangelog = unreleasedChangelog;
+        } else {
+          const selectedIndices: number[] = await checkbox({
+            message: `Include changelog entries? (${unreleasedChangelog.length} since last release)`,
+            choices: unreleasedChangelog.map(c => ({
+              value: c.index,
+              name: `${c.entry.date} [${c.entry.type}] ${c.entry.scope}: ${c.entry.description.slice(0, 80)}`,
+              checked: true,
+            })),
+          });
+          selectedChangelog = unreleasedChangelog.filter(c => selectedIndices.includes(c.index));
+        }
+      }
+
+      // 7. Build release entry
+      const releaseEntry: ReleaseEntry = {
+        id: generateId('rel'),
+        version: version.trim(),
         date: today(),
-        summary,
-        changes,
-        breaking: false,
-      });
+        summary: summary.trim(),
+        breaking,
+        features: selectedFeatureIds,
+        tasks: selectedTaskIds,
+        changelog: selectedChangelog.map(c => c.entry),
+      };
 
-      success(`Release ${version} recorded.`);
+      // 8. Write to RELEASES.json
+      insertToJsonArray(releasesPath, releaseEntry);
+
+      // 9. Back-populate features
+      if (selectedFeatureIds.length > 0) {
+        backPopulateFeatures(root, selectedFeatureIds, version.trim());
+        info(`Set released_version="${version.trim()}" on ${selectedFeatureIds.length} feature(s).`);
+      }
+
+      success(`Release ${version.trim()} recorded (${selectedTaskIds.length} tasks, ${selectedFeatureIds.length} features, ${selectedChangelog.length} changelog entries).`);
+    });
+
+  releases
+    .command('list')
+    .description('List recent releases')
+    .option('-n, --count <n>', 'Number of releases to show', '10')
+    .action((opts) => {
+      const root = ensureContextRoot();
+      const allReleases = getExistingReleases(root);
+      const count = parseInt(opts.count, 10) || 10;
+      const recent = allReleases.slice(0, count);
+
+      if (recent.length === 0) {
+        info('No releases recorded yet.');
+        return;
+      }
+
+      console.log(header('Releases'));
+      console.log(formatTable(
+        ['Version', 'Date', 'Summary', 'Tasks', 'Features', 'Breaking'],
+        recent.map(r => [
+          r.version,
+          r.date,
+          r.summary.length > 40 ? r.summary.slice(0, 37) + '...' : r.summary,
+          String(r.tasks?.length ?? 0),
+          String(r.features?.length ?? 0),
+          r.breaking ? 'YES' : 'no',
+        ]),
+      ));
+    });
+
+  releases
+    .command('show')
+    .argument('<version>', 'Release version to show')
+    .description('Show details of a specific release')
+    .action((version: string) => {
+      const root = ensureContextRoot();
+      const allReleases = getExistingReleases(root);
+      const release = allReleases.find(r => r.version === version);
+
+      if (!release) {
+        error(`Release not found: ${version}`);
+        return;
+      }
+
+      console.log(header(`Release ${release.version}`));
+      console.log(`  Date:     ${release.date}`);
+      console.log(`  Summary:  ${release.summary}`);
+      console.log(`  Breaking: ${release.breaking ? 'Yes' : 'No'}`);
+      console.log(`  ID:       ${release.id}`);
+
+      if (release.tasks.length > 0) {
+        console.log(`\n  Tasks (${release.tasks.length}):`);
+        for (const id of release.tasks) console.log(`    - ${id}`);
+      }
+
+      if (release.features.length > 0) {
+        console.log(`\n  Features (${release.features.length}):`);
+        for (const id of release.features) console.log(`    - ${id}`);
+      }
+
+      if (release.changelog.length > 0) {
+        console.log(`\n  Changelog (${release.changelog.length}):`);
+        for (const e of release.changelog) {
+          console.log(`    - ${e.date} [${e.type}] ${e.scope}: ${e.description.slice(0, 80)}`);
+        }
+      }
     });
 }

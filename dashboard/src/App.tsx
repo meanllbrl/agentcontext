@@ -1,0 +1,76 @@
+import { Component, type ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from './context/ThemeContext';
+import { I18nProvider } from './context/I18nContext';
+import { Shell } from './components/layout/Shell';
+import { TasksPage } from './pages/TasksPage';
+import { SleepPage } from './pages/SleepPage';
+import { CorePage } from './pages/CorePage';
+import { KnowledgePage } from './pages/KnowledgePage';
+import { FeaturesPage } from './pages/FeaturesPage';
+import type { Page } from './components/layout/Sidebar';
+import './styles/global.css';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5000,
+      retry: 1,
+      refetchOnWindowFocus: true,
+    },
+    mutations: {
+      retry: 0,
+    },
+  },
+});
+
+function PageRouter({ page }: { page: Page }) {
+  switch (page) {
+    case 'tasks': return <TasksPage />;
+    case 'sleep': return <SleepPage />;
+    case 'core': return <CorePage />;
+    case 'knowledge': return <KnowledgePage />;
+    case 'features': return <FeaturesPage />;
+  }
+}
+
+interface ErrorBoundaryState {
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="error-boundary">
+          <h1>Something went wrong.</h1>
+          <p>{this.state.error.message}</p>
+          <button onClick={() => window.location.reload()}>Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <I18nProvider>
+            <Shell>
+              {(page) => <PageRouter page={page} />}
+            </Shell>
+          </I18nProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}

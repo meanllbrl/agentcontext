@@ -29,12 +29,14 @@ describe('readSleepState', () => {
       debt: 0,
       last_sleep: null,
       last_sleep_summary: null,
+      sleep_started_at: null,
       sessions: [],
+      dashboard_changes: [],
     });
   });
 
   it('reads persisted sleep state with sessions', () => {
-    const expected: SleepState = {
+    const persisted = {
       debt: 5,
       last_sleep: '2026-02-24',
       last_sleep_summary: 'Consolidated auth decisions',
@@ -57,9 +59,9 @@ describe('readSleepState', () => {
         },
       ],
     };
-    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(expected, null, 2));
+    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(persisted, null, 2));
     const state = readSleepState(tmpDir);
-    expect(state).toEqual(expected);
+    expect(state).toEqual({ ...persisted, sleep_started_at: null, dashboard_changes: [] });
   });
 
   it('returns default state when file is malformed JSON', () => {
@@ -69,7 +71,9 @@ describe('readSleepState', () => {
       debt: 0,
       last_sleep: null,
       last_sleep_summary: null,
+      sleep_started_at: null,
       sessions: [],
+      dashboard_changes: [],
     });
   });
 
@@ -80,12 +84,14 @@ describe('readSleepState', () => {
       debt: 0,
       last_sleep: null,
       last_sleep_summary: null,
+      sleep_started_at: null,
       sessions: [],
+      dashboard_changes: [],
     });
   });
 
   it('reads state with empty sessions', () => {
-    const minimal: SleepState = {
+    const minimal = {
       debt: 0,
       last_sleep: null,
       last_sleep_summary: null,
@@ -93,7 +99,7 @@ describe('readSleepState', () => {
     };
     writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(minimal, null, 2));
     const state = readSleepState(tmpDir);
-    expect(state).toEqual(minimal);
+    expect(state).toEqual({ ...minimal, sleep_started_at: null, dashboard_changes: [] });
   });
 
   it('reads state after consolidation (debt 0 with last_sleep set)', () => {
@@ -125,6 +131,32 @@ describe('readSleepState', () => {
     expect(state.debt).toBe(3);
     expect(state.sessions).toEqual([]);
     expect(state.last_sleep).toBe('2026-01-01');
+  });
+
+  it('reads state with sleep_started_at set', () => {
+    const persisted = {
+      debt: 5,
+      last_sleep: null,
+      last_sleep_summary: null,
+      sleep_started_at: '2026-02-25T10:00:00.000Z',
+      sessions: [],
+      dashboard_changes: [],
+    };
+    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(persisted, null, 2));
+    const state = readSleepState(tmpDir);
+    expect(state.sleep_started_at).toBe('2026-02-25T10:00:00.000Z');
+  });
+
+  it('returns sleep_started_at: null for old format without the field', () => {
+    const oldFormat = {
+      debt: 3,
+      last_sleep: '2026-01-01',
+      last_sleep_summary: 'old',
+      sessions: [],
+    };
+    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(oldFormat, null, 2));
+    const state = readSleepState(tmpDir);
+    expect(state.sleep_started_at).toBeNull();
   });
 
   it('handles sessions field set to null gracefully', () => {

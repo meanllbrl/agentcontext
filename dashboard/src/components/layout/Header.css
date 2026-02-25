@@ -1,0 +1,114 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-height);
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.agent-avatar {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--transition-normal);
+}
+
+.agent-avatar--must_sleep {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+.zzz {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-tertiary);
+  animation: float 2s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brand-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.sleep-badge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.sleep-badge--alert {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.sleep-badge--drowsy {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+.sleep-badge--sleepy {
+  background: hsl(287 100% 33% / 0.1);
+  color: var(--color-brand-vivid);
+}
+
+.sleep-badge--must_sleep {
+  background: var(--color-error-subtle);
+  color: var(--color-error);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+}

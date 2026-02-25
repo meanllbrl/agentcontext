@@ -1,0 +1,41 @@
+{
+  "debt": 8,
+  "last_sleep": "2026-02-25",
+  "last_sleep_summary": "Consolidated 10 sessions: SQL ER diagram preview, field-level change tracking, release backpopulation decision, error handling, README rewrite, sleep race condition fix, tasks non-interactive, interactive highlight fix, SubagentStart briefing enrichment. Updated memory (new session entries + compressed older sessions), soul (test count), web-dashboard task + feature PRD, CHANGELOG.json (8 new entries), tech stack (dashboard components).",
+  "sleep_started_at": null,
+  "sessions": [
+    {
+      "session_id": "1d14d889-3adf-44d4-be2a-ec606a1e9dae",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/1d14d889-3adf-44d4-be2a-ec606a1e9dae.jsonl",
+      "stopped_at": "2026-02-25T23:37:18.697Z",
+      "last_assistant_message": "All 325 tests pass.\n\n**Root cause**: `selectedTask` was stored as a full `Task` object snapshot in React state. When mutations triggered a query refetch, the board columns updated (they derive from query data), but the detail panel kept displaying the stale snapshot.\n\n**Fix**: Changed to storing `selectedSlug: string | null` and deriving the actual `selectedTask` via `useMemo` from the live query data. Now when TanStack Query refetches after a mutation, the detail panel automatically reflects the updated task.",
+      "change_count": 4,
+      "score": 2
+    },
+    {
+      "session_id": "7778bb68-0697-4dda-9d5b-8848c8678261",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/7778bb68-0697-4dda-9d5b-8848c8678261.jsonl",
+      "stopped_at": "2026-02-25T23:31:28.745Z",
+      "last_assistant_message": "Both files are updated. Here's a summary of what changed:\n\n**README.md:**\n- Added \"Dashboard\" to the nav links\n- Added interactive mode mention in Quick Start\n- Updated Mermaid diagram: \"edit files or dashboard\" in capture, added features/changelog/releases to store\n- Added full **Dashboard** section before Commands (usage, feature descriptions in a 2x2 table, design notes)\n- Expanded **Core** commands: `releases add --yes`, `releases list`, `releases show`\n- Expanded **Tasks** commands: `insert` subcommand, all flags (`--priority`, `--status`, `--tags`, `--description`, `--why`), non-interactive defaults note\n- Added **Dashboard** command subsection under Commands\n- Added release auto-discovery explanation\n- Added \"Web Dashboard\" to Works With\n\n**DEEP-DIVE.md:**\n- Added \"Dashboard\" to nav links\n- Added `features/` row to the brain-region architecture table\n- Updated SessionStart snapshot list: changelog changed from 5 to 3, added \"Latest release\" item, renumbered to 9 items\n- Updated the hook flow diagram: added \"Between sessions\" block for dashboard changes, added dashboard changes and latest release to snapshot injection list\n- Added full **The Dashboard** section (what it provides, change tracking with field-level diffs, technical decisions, release management)\n- Added 6 new rows to Design Tradeoffs table (native DnD, no CSS framework, native HTTP server, SVG ER diagrams, field-level change tracking)\n- Updated \"What Comes Next\" to mention dashboard is built and shipping",
+      "change_count": 12,
+      "score": 3
+    },
+    {
+      "session_id": "113c6833-896d-43e0-8a45-ea064f9465ac",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/113c6833-896d-43e0-8a45-ea064f9465ac.jsonl",
+      "stopped_at": "2026-02-25T22:43:31.811Z",
+      "last_assistant_message": "All **325 tests passing** (13 unit + 10 integration tests added). Here's the summary:\n\n## What was built\n\n**New files:**\n- `src/lib/release-discovery.ts` - Auto-discovery of unreleased tasks, features, and changelog entries\n- `src/lib/release-backpopulate.ts` - Sets `released_version` on features when they're included in a release\n- `tests/unit/release-discovery.test.ts` - 13 unit tests\n\n**Modified files:**\n- `src/cli/commands/core.ts` - Rewrote `releases add` with auto-discovery + `--yes` mode; added `releases list` and `releases show`\n- `src/cli/commands/snapshot.ts` - Added \"Latest Release\" section (changed changelog from 5 to 3 per your earlier request)\n- `src/cli/interactive.ts` - Added \"List releases\" menu item\n- `src/server/routes/changelog.ts` - Added `GET /api/releases/unreleased`, `GET /api/releases/:version`, `POST /api/releases`\n- `src/server/index.ts` - Registered 3 new routes\n- `skill/SKILL.md` - Updated command reference\n- `tests/integration/cli-commands.test.ts` - 10 new integration tests\n- `tests/integration/snapshot.test.ts` - Fixed test for changelog limit change (5 -> 3)\n\n**Release entry schema now:**\n```json\n{\n  \"id\": \"rel_xK9pQ2mL\",\n  \"version\": \"1.0.0\",\n  \"date\": \"2026-02-26\",\n  \"summary\": \"...\",\n  \"breaking\": false,\n  \"features\": [\"feat_abc\"],\n  \"tasks\": [\"task_xyz\"],\n  \"changelog\": [{ \"date\", \"type\", \"scope\", \"description\", \"breaking\" }]\n}\n```\n\n**Key behaviors:**\n- `core releases add --ver 1.0.0 --summary \"...\" --yes` - Non-interactive, auto-includes all unreleased items\n- `core releases add` - Interactive with checkbox prompts for selecting which items to include\n- Back-populates `released_version` on features\n- Second release correctly excludes already-released items\n- Snapshot shows \"Latest Release\" section",
+      "change_count": 21,
+      "score": 3
+    },
+    {
+      "session_id": "4ddba415-04d0-4226-94db-cd3cd7814ba2",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/4ddba415-04d0-4226-94db-cd3cd7814ba2.jsonl",
+      "stopped_at": "2026-02-25T19:31:11.227Z",
+      "last_assistant_message": "Consolidation complete. Sleep debt is now **0**.\n\nSummary of what the agent did:\n- **Memory file** trimmed from 233 to 160 lines — compressed older sessions, cut Technical Decisions from 26 to 12 entries\n- **Soul** updated with current priority and test counts (313)\n- **Tech stack** updated with new dashboard components (sql-parser, api client)\n- **Changelog** got 8 new entries covering all recent work\n- **Web dashboard** task and feature PRDs updated with Phase 4 completion\n- No user input needed",
+      "change_count": 0,
+      "score": 0
+    }
+  ],
+  "dashboard_changes": []
+}

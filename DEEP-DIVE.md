@@ -1,0 +1,320 @@
+<p align="center">
+  <img src="public/image/agentcontext.png" alt="agentcontext" width="120" />
+</p>
+
+<h1 align="center">Deep Dive</h1>
+
+<p align="center">
+  The philosophy, architecture, and design decisions behind agentcontext.<br/>
+  For setup and commands, see the <a href="README.md">README</a>.
+</p>
+
+<p align="center">
+  <a href="#why-it-exists">Why It Exists</a> &nbsp;&middot;&nbsp;
+  <a href="#the-problem-in-depth">The Problem</a> &nbsp;&middot;&nbsp;
+  <a href="#the-architecture">Architecture</a> &nbsp;&middot;&nbsp;
+  <a href="#the-hook-mechanism">Hooks</a> &nbsp;&middot;&nbsp;
+  <a href="#the-sleep-cycle">Sleep Cycle</a> &nbsp;&middot;&nbsp;
+  <a href="#the-dashboard">Dashboard</a> &nbsp;&middot;&nbsp;
+  <a href="#cli-design">CLI</a> &nbsp;&middot;&nbsp;
+  <a href="#design-tradeoffs">Tradeoffs</a>
+</p>
+
+---
+
+## Why It Exists
+
+I built `agentcontext` because AI coding agents, even the best frontier models, make mistakes that require human judgment to catch. Not small mistakes. Mistakes that would be catastrophic in production.
+
+Here is what I have seen them do, repeatedly, across real projects:
+
+- **Fetch entire collections** instead of filtering at the query level. The data is right there in a Firestore query or a SQL WHERE clause, but the agent pulls everything into memory and filters in code. On any real dataset, that is a performance disaster and a cost explosion.
+- **Write serverless functions with infinite loop potential.** Cloud functions that trigger on a write, then write back to the same path, with no circuit breaker. No recursion guard. Just a function that passes its test and would drain your billing in production.
+- **Skip index checks, error health, and monitoring.** The agent writes the happy path. The test passes. But there is no error boundary, no retry logic, no alerting, no index on the field it just queried. The kind of thing an experienced engineer catches in review because they have seen it fail before.
+- **Optimize for test passing, not system correctness.** An agent will reshape code until the test goes green. That does not mean the implementation is right. It means the test was satisfied. The gap between those two things is where production incidents live.
+
+These are not edge cases from small models. These are the top-of-the-line frontier models on real projects. Maybe an agent can handle a simple frontend on its own, or wire up a small database. But the moment you have complex edge cases, serverless architectures with real scaling concerns, or acceptance criteria that require product judgment, **a human engineer needs to be steering.** And steering only works when both sides have clear visibility into what is happening: what decisions were made, what work is in progress, what rules to follow, and what was tried before.
+
+That is what `agentcontext` is. Not just memory for agents. **A shared context layer that both you and your agent can read, audit, and act on.** When I open my project's context files, I can see exactly what the agent knows, correct what it got wrong, and make sure the next session starts with accurate information.
+
+The problems that make this necessary are not accidental. **They are structural limitations of how agent memory works today.**
+
+## The Problem in Depth
+
+### The search spiral
+
+You ask the agent to work on a task. The task references something, maybe a caching strategy you decided on two weeks ago. One paragraph. A clear decision that already lives somewhere in your project. But the agent does not know that. So it starts digging.
+
+It greps for "cache." Finds 14 matches across 8 files. Reads 3 of them. Realizes those are implementation files, not the decision. Searches for "strategy." Reads 2 more files. Finds a comment that references a config pattern. Reads the config. Now it searches for where that config is used. Reads 2 more files. Finally pieces it together.
+
+Three minutes. Multiple tool calls. Context window already filling up. And then it says: *"Ok, now I completely understand the codebase. Let me plan the implementation."*
+
+**You have not started working yet.** You have been watching your agent do archaeology on a decision it already knew yesterday. This happens every session. And it scales with your project. More files, more decisions, more things to re-discover. **You are paying for search, not for work.**
+
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="public/image/agentcontext_disabled.png" alt="Without agentcontext" width="100%" /><br/>
+<em><strong>Without agentcontext</strong><br/>The agent does archaeology on decisions<br/>it already knew yesterday.</em>
+</td>
+<td width="50%" align="center">
+<img src="public/image/agentcontext_enabled.png" alt="With agentcontext" width="100%" /><br/>
+<em><strong>With agentcontext</strong><br/>The decision is already in the snapshot.<br/>One read if needed. No spiral.</em>
+</td>
+</tr>
+</table>
+
+### Single memory files don't scale
+
+A `CLAUDE.md` works for small projects. "Use tabs. Prefer functional. API is in `/src/api`." That is fine when your project is simple.
+
+But when you have 200 files, 15 active decisions, 3 in-progress features, and a deployment process with edge cases, **one file either balloons into a wall of text the agent skims past, or stays too shallow to help.**
+
+Think about it: identity and principles, user preferences, technical decisions, task progress, deep reference docs. These are structurally different types of knowledge. They change at different rates, serve different purposes, and need different formats. Putting them in one file is like storing your calendar, contacts, journal, and reference library in one document. **It works until it doesn't.**
+
+### Search is the wrong approach for baseline context
+
+It does not matter how your agent searches. Grep, glob, fuzzy match, RAG, vector store. The search technology is not the problem. **The problem is that search is the wrong approach for baseline context.**
+
+Every time your agent greps for a function, reads a file to remember a decision, or globs for config files to understand project structure, it is spending tokens. Tool calls, output parsing, reasoning about what to search next. Whether that is a local `rg` call or a vector similarity query, the cost is the same: tokens and time burned on re-discovery instead of actual work.
+
+Your agent should not need to search for who it is, what it is working on, or what decisions were already made. That is not a search problem. **That is baseline context that should already be there when the session starts.**
+
+The write side has the same issue. Adding a technical decision, logging task progress, and creating a knowledge doc are structurally different operations. They belong in different places with different formats. A flat append to a single file cannot express that difference.
+
+And when it comes time to retrieve, structure is what makes the difference between a clean answer and noise. "What are my active tasks?" is a directory listing, not a search query. "What does the soul file say about error handling?" is a file read, not a fuzzy match across everything. When your context is structured, you don't need clever retrieval. You just go to the right place.
+
+### Closed memory systems lock you out
+
+Some tools offer built-in memory behind their API. Sometimes you can see what the agent "knows." Sometimes you can even edit it. But **every interaction ties you deeper to that platform.** You can copy-paste to another tool, export to a file, find workarounds. But should you have to struggle with friction just to access your own project's context?
+
+When you switch tools, or the service changes its API, or you want to work offline, that knowledge is trapped behind someone else's interface. **The friction is the lock-in.** Not a hard wall, just enough resistance that most people stop trying.
+
+**Your agent's memory should be files in your repo.** Markdown and JSON. Readable, editable, diffable. You should be able to open your agent's understanding of your project in any text editor, fix a wrong assumption, and commit the change. That is ownership.
+
+## The Architecture
+
+Human brains don't store everything in one region. Your prefrontal cortex handles identity and decision-making. Your temporal lobe stores facts and relationships. You have procedural memory for skills you don't think about, and working memory for what you are actively doing. Different types of knowledge, different storage.
+
+`agentcontext` takes inspiration from this structure:
+
+| Brain Region | agentcontext | What it holds |
+|---|---|---|
+| Prefrontal cortex | `0.soul.md` | Identity, principles, rules, constraints |
+| Episodic memory | `1.user.md` | Your preferences, project conventions, workflow |
+| Semantic memory | `2.memory.md` | Decisions, known issues, technical context |
+| Sensory cortex | `3.style_guide.md`, `4.tech_stack.md` | Style, tech stack, data structures |
+| Declarative memory | `features/` | Feature PRDs with user stories, acceptance criteria, constraints |
+| Long-term knowledge | `knowledge/` | Deep docs, tagged with standard categories, pinnable for auto-loading |
+| Working memory | `state/` | Active tasks, in-progress work |
+| Skill memory | `SKILL.md` | Teaches the agent the system itself |
+
+The `_agent_context/` directory is the implementation. Everything lives in your repo, structured and version-controlled.
+
+### How each piece works
+
+**Soul** (`0.soul.md`) defines who the agent is when working on your project. Project identity, core principles, behavioral rules, constraints, and warnings. For example: *"Never use `require()` in this project"* or *"Always run tests before considering a change complete."* This is the most stable file. It changes rarely and sets the foundation for everything else.
+
+**User** (`1.user.md`) captures your preferences, communication style, and workflow conventions. For example: *"No em dashes in writing, restructure the sentence instead"* or *"Make decisions directly, don't ask for permission on clear choices."* Tech stack details go in their own extended core file. **User is about how you work, not what you work with.**
+
+**Memory** (`2.memory.md`) is the working log of technical decisions, known issues, and session-level learnings. For example: *"Chose Postgres over MongoDB because the data is highly relational"* or *"The auth middleware must run before rate limiting, not after."* It follows LIFO ordering (newest at top) and is the file that changes most frequently. The sleep cycle keeps it from growing out of control.
+
+**Extended core files** (slots 3-5) hold specialized context: style guide, tech stack, data structures. These are loaded as summaries in the snapshot with paths included, so the agent knows they exist without burning tokens loading the full content every session.
+
+**Knowledge** (`knowledge/`) is where deep reference docs live. Architectural context, domain knowledge, research, design rationales. For example: a doc on *"payment-flow-architecture"* tagged with `[architecture, payments, api]` explaining the full Stripe integration and edge cases. Each file has frontmatter with tags and descriptions. The snapshot surfaces a complete index so the agent knows what docs exist. Files marked `pinned: true` get loaded in full every session for frequently-needed reference.
+
+**State** (`state/`) holds active work: task files with progress logs and a sleep state file tracking consolidation debt. A task like *"migrate-to-postgres"* would have status, priority, and a LIFO log of every step taken. Tasks follow a lifecycle (pending, in-progress, blocked, completed).
+
+## The Hook Mechanism
+
+The core insight: **don't make the agent search for its own context.**
+
+`agentcontext` uses three shell hooks that run outside the agent's context window. They execute in the shell, not in the agent's reasoning loop. No tool calls, no token cost, no context window pressure.
+
+### Stop Hook
+
+Fires when a session ends. Reads the session ID and transcript path from Claude Code, then analyzes the transcript for file changes by counting Write/Edit tool uses. Scores sleep debt based on volume:
+
+| Changes | Debt added |
+|---------|-----------|
+| 1-3 | +1 |
+| 4-8 | +2 |
+| 9+ | +3 |
+
+Saves the full session record to `.sleep.json`: session ID, transcript path, timestamp, change count, debt score, and the agent's last message (what it accomplished). Each concurrent session gets its own entry.
+
+### SessionStart Hook
+
+Fires before the agent sees your first message. Compiles and injects a full context snapshot:
+
+1. **Soul + User + Memory** loaded in full (the agent's identity, your preferences, accumulated decisions)
+2. **Extended core files** surfaced as summaries with paths (style guide, tech stack, data structures)
+3. **Active tasks** with status, priority, and last update timestamp
+4. **Sleep state** with debt level, last sleep timestamp, and per-session history (what was accomplished, when, how many changes)
+5. **Recent changelog** (last 3 entries from CHANGELOG.json)
+6. **Latest release** with version, date, summary, and included task/feature counts
+7. **Features** with the Why, related tasks, and latest changelog entry per feature
+8. **Knowledge index** with slug, description, and tags for every knowledge file
+9. **Pinned knowledge** loaded in full for files marked `pinned: true`
+
+Every file path is included in the output. If the agent needs more detail on something, it knows exactly where to look. One targeted read instead of a search spiral.
+
+When sleep debt is high, the hook also injects graduated consolidation directives: a suggestion at debt 7-9, a strong recommendation at debt 10+. The agent sees these before your first message and can plan accordingly.
+
+### SubagentStart Hook
+
+Fires when any sub-agent launches (Explore, Plan, or custom agents). Injects a lightweight briefing: project summary (capped at 120 characters), directory structure, active tasks, knowledge index, and pinned knowledge.
+
+This is intentionally lighter than the full snapshot. Sub-agents are task-focused and short-lived. They need enough context to check existing knowledge and avoid duplicating work, not the full project state. The briefing fires for all sub-agents, including agentcontext's own (the initializer and RemSleep agent). The extra context does not conflict with their dedicated prompts.
+
+### The flow
+
+```
+Session ends
+  → Stop hook fires                                  runs in shell
+  → Captures last message + transcript               what the agent accomplished
+  → Analyzes file changes, scores debt               no deferred analysis
+  → Session record saved to .sleep.json              full context preserved
+
+Between sessions
+  → You use the dashboard or edit files               human-side work
+  → Dashboard changes recorded to .sleep.json         change tracking closes the loop
+
+Next session starts
+  → SessionStart hook fires                          runs in shell
+  → Snapshot injected: soul, user, memory,           zero tool calls
+    core summaries, tasks, sleep state,
+    session history, dashboard changes,
+    latest release, features, changelog,
+    knowledge index, pinned docs
+  → You ask your question.
+  → Agent is already at full capacity.
+
+Sub-agent launches
+  → SubagentStart hook fires                         runs in shell
+  → Lightweight briefing injected:                   project summary, tasks,
+    knowledge index, pinned docs                     avoids blind exploration
+```
+
+## The Sleep Cycle
+
+Humans consolidate memory during sleep. Your hippocampus replays the day, extracts patterns, strengthens important connections, and discards noise. Without consolidation, memory degrades. It is not optional. It is how learning works.
+
+Agents face the same challenge. Over multiple sessions, your agent accumulates knowledge: decisions, patterns, problems solved, tasks completed. Without consolidation, that knowledge either gets lost when the session ends or piles up in context files until they are too noisy to be useful. **Good context files don't happen by accident.** They need the same kind of maintenance a good engineer applies to their own notes.
+
+`agentcontext` ships with a **RemSleep** agent that handles this consolidation:
+
+1. **Debt accumulates automatically.** The Stop hook scores each session based on file changes. No manual tracking needed. The score reflects how much new knowledge was generated.
+2. **Every session is preserved.** The sleep state holds a sessions array (newest first). Each record has the session ID, timestamp, change count, debt score, and the full text of the agent's last message. The RemSleep agent reads these to understand exactly what happened across sessions without parsing raw transcripts.
+3. **The agent responds with graduated awareness.** As debt rises, the agent's behavior shifts from normal work to actively recommending consolidation (see table below).
+4. **RemSleep consolidates.** When activated (automatically at Must Sleep or manually by the user), the RemSleep agent reviews all session records, promotes important learnings from memory to core files, extracts deep knowledge into tagged docs, updates summaries, cleans stale entries, archives completed tasks, and keeps core files within reasonable size limits.
+5. **Debt resets.** After consolidation, debt goes to zero, sessions are cleared, the timestamp is recorded, and the cycle starts fresh.
+6. **Next session**, the agent wakes up knowing its debt level, when it last consolidated, and what the previous session accomplished.
+
+### Debt levels
+
+| Debt | Level | Behavior |
+|------|-------|----------|
+| 0-3 | Alert | Works normally |
+| 4-6 | Drowsy | Mentions consolidation at natural breaks |
+| 7-9 | Sleepy | Actively suggests sleeping, snapshot includes a reminder |
+| 10+ | Must Sleep | Snapshot strongly recommends consolidation, defers to user if there is urgent work |
+
+Each cycle, the agent's context gets cleaner and more structured. Not because the agent "learns" in a human sense, but because consolidation enforces discipline: promote what matters, archive what is done, delete what is stale. Over time, the context files become a progressively better representation of your project's state.
+
+Because sleep debt is tracked as real state (persisted in `.sleep.json`, surfaced in the snapshot, enforced by graduated directives), the system actually drives consolidation instead of hoping the agent remembers to do it. I tested the alternative: when sleep tracking lived in prompt instructions rather than hooks, the agent forgot to consolidate most of the time. **Context pressure pushes out behavioral instructions. Hooks don't have that problem.**
+
+## The Dashboard
+
+The CLI and hooks handle the agent side. But context is a shared layer, and the human needs a way to work with it too. Opening markdown files in a text editor works, but it is not the best experience for managing tasks, reviewing sleep state, or browsing features. The dashboard fills that gap.
+
+`agentcontext dashboard` starts a local HTTP server and opens a web UI. No external services, no accounts, no network calls. It reads and writes the same `_agent_context/` files the CLI uses. There is no separate database.
+
+### What it provides
+
+**Kanban board.** Tasks displayed as cards across columns (To Do, In Progress, Completed). Drag a card to change status. Filter by priority or tags, sort by date or name, group by status or priority. Click a task to open a detail panel for editing fields and adding changelog entries.
+
+**Core file editor.** All core files listed in a sidebar. Markdown files open in a split-pane editor: textarea on the left, live preview on the right. JSON files display formatted. SQL files (like `5.data_structures.sql`) render a visual ER diagram showing entities, fields, types, and foreign key relationships.
+
+**Knowledge manager.** Search across knowledge files by name, description, and tags. Pin and unpin files directly. Clicking a file shows its full content.
+
+**Features viewer.** All feature PRDs listed with status badges and tags. Click to see the full PRD: Why, User Stories, Acceptance Criteria, Constraints, Technical Details, Changelog.
+
+**Sleep tracker.** A debt gauge with color coding by level (green through red). Session history timeline showing what happened in each session. A list of every dashboard change made since the last consolidation.
+
+### Change tracking
+
+This is the piece that ties the dashboard back to the agent. Every action taken through the dashboard (creating a task, editing a core file, pinning knowledge, updating a field) is recorded in `.sleep.json` as a `dashboard_changes` entry. Each entry captures the timestamp, entity type, action, target, and a human-readable summary.
+
+When the agent starts its next session, the snapshot includes these changes. The RemSleep agent reads them during consolidation and folds the human's work into the project context. This closes the loop: the agent learns what you did between sessions without you telling it.
+
+Field-level change tracking goes further. If you change a task's priority from "medium" to "high," the change record captures both the old and new values, not just "task updated." Net-change detection folds redundant changes: if you change priority from medium to high, then high to critical, only one record survives (medium to critical). If you change something and then change it back, the record is removed entirely. This keeps the change list clean for the agent to process.
+
+### Technical decisions
+
+The server uses Node.js native `http` module with zero new runtime dependencies. Routes are thin wrappers around the same `src/lib/` utilities the CLI uses. The React app (React 19 + Vite 6) is built separately and the output is copied to `dist/dashboard/` during the build. React dependencies live in `dashboard/package.json`, isolated from the CLI's dependencies.
+
+The design uses a custom CSS system with design tokens (purple-to-magenta brand gradient, HSL colors, 4px grid, light/dark mode with system preference detection). No CSS framework. The Visby CF font is the brand font with a system font fallback for environments where it is not installed.
+
+### Release management
+
+The `core releases add` command auto-discovers unreleased items when creating a release: completed tasks without a `released_version`, active features without a `released_version`, and changelog entries since the last release. In interactive mode, you select which items to include via checkboxes. In non-interactive mode (`--yes`), everything unreleased is included automatically.
+
+After recording the release, the command back-populates `released_version` on included features. This means the next release correctly excludes already-released items. `core releases list` and `core releases show` let you review release history.
+
+The snapshot includes a "Latest Release" section so the agent always knows what was last shipped.
+
+## CLI Design
+
+Making an agent edit structured files (JSON, frontmatter, LIFO-ordered lists) means it has to read the file, understand the format, reason about where the edit goes, make the change, and verify it didn't break anything. **That is four or five operations and a lot of tokens for what should be one call.**
+
+The CLI handles structural operations in a single command:
+
+```bash
+agentcontext tasks create auth-refactor     # Scaffolds task with frontmatter
+agentcontext tasks log auth-refactor "..."  # Appends log entry (LIFO)
+agentcontext tasks complete auth-refactor   # Updates status in frontmatter
+agentcontext core changelog add             # Adds entry with proper schema
+agentcontext features create payments       # Scaffolds feature PRD
+agentcontext features insert auth changelog "Added OAuth flow"  # LIFO section insert
+agentcontext knowledge create api-patterns  # Creates tagged knowledge doc
+```
+
+One CLI call replaces a Read + reason + Edit + verify cycle. That difference compounds over a session. The CLI handles frontmatter parsing, LIFO ordering, JSON schema enforcement, and section insertion. The agent does not need to think about any of that.
+
+Direct content edits (rewriting a paragraph in soul.md, updating a decision in memory.md, adding detail to a knowledge doc) still use the agent's native Read/Edit/Write tools. The agent is good at content. It is wasteful at structure.
+
+The split is simple: **CLI for structure, native tools for content.**
+
+## Design Tradeoffs
+
+Every design choice was deliberate. Here is what I chose, what I chose it over, and why.
+
+| I chose | Over | Why |
+|---|---|---|
+| **Local files** | Jira, Linear, GitHub APIs via MCP | `Read` on a local file never fails. Filesystem speed beats network speed. And I can open the file myself. |
+| **Smart pre-loading** | On-demand search | A structured snapshot once is cheaper than repeated search loops. Soul, user, memory load in full. Everything else loads as summaries with paths. |
+| **Opinionated structure** | Flexible layout | The snapshot knows where everything lives because it is always in the same place. Flexibility means discovery, discovery means search, search means tokens. |
+| **JSON changelogs** | Markdown or git log | JSON is the agent's native format. Discrete fields, instant parsing, one CLI call to append. |
+| **Keyword search** | Semantic/vector search | Zero dependencies, instant, predictable. Dozens of context files don't need embeddings. |
+| **CLI for structure** | Agent editing JSON/frontmatter directly | One CLI call beats a Read + reason-about-format + Edit + verify cycle. |
+| **Hooks over prompts** | Instructions in CLAUDE.md | When sleep tracking lived in prompt instructions, the agent forgot to consolidate most of the time. Hooks fire consistently regardless of context pressure. |
+| **Human-readable files** | Agent-only memory stores | If I cannot read what the agent knows, I cannot correct it. Markdown and JSON are readable by both. That is the whole point. |
+| **Claude Code first** | All agents at once | Starting where the hook and tool ecosystem is richest. More agents coming as I expand. |
+| **Native HTML drag-and-drop** | @dnd-kit or react-dnd | Zero dependency cost. Upgrade later if UX is insufficient. |
+| **No CSS framework** | Tailwind, CSS Modules | Full control over design system. Custom tokens, brand gradient, light/dark mode. Minimal bundle. |
+| **Native Node HTTP server** | Express, Fastify | Zero new runtime deps for the dashboard server. Routes wrap existing `src/lib/` utilities. |
+| **SVG bezier curves for ER diagrams** | D3, React Flow | Graph libraries are overkill for a static schema view. SVG paths with cubic bezier and arrowheads over CSS grid. |
+| **Field-level change tracking** | "Entity changed" records | The agent needs to know *what* changed, not just *that* something changed. Net-change detection keeps the list clean. |
+
+---
+
+## What Comes Next
+
+Right now, `agentcontext` supports Claude Code. The hook system, the skill format, and the agent integration are all built around Claude's tool ecosystem. But the core idea (structured files, pre-loaded context, consolidation cycles) is not tied to any one agent. The architecture is designed so that other agents (Gemini CLI, Copilot, custom agents) can plug into the same `_agent_context/` directory with their own integration layer.
+
+The dashboard is built and shipping with the package. Remaining polish includes accessibility audit, responsive layout refinements, i18n token extraction for future localization, and bundle size optimization.
+
+The long-term vision: your project's context lives in your repo, structured and version-controlled, and any agent you choose to work with can pick it up. **The human stays in the loop. The context stays portable.** The agent gets better every session because the system enforces the discipline that makes that possible.
+
+For setup, commands, and getting started, see the [README](README.md).

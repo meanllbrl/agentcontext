@@ -1,0 +1,136 @@
+import { join, basename } from 'node:path';
+import { existsSync } from 'node:fs';
+import fg from 'fast-glob';
+import { readFrontmatter } from './frontmatter.js';
+import { readJsonArray } from './json-file.js';
+
+export interface ChangelogEntry {
+  date: string;
+  type: string;
+  scope: string;
+  description: string;
+  breaking: boolean;
+}
+
+export interface ReleaseEntry {
+  id: string;
+  version: string;
+  date: string;
+  summary: string;
+  breaking: boolean;
+  features: string[];
+  tasks: string[];
+  changelog: ChangelogEntry[];
+}
+
+export interface UnreleasedTask {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+}
+
+export interface UnreleasedFeature {
+  id: string;
+  slug: string;
+  status: string;
+}
+
+export interface UnreleasedChangelog {
+  index: number;
+  entry: ChangelogEntry;
+}
+
+function changelogFingerprint(entry: ChangelogEntry): string {
+  return `${entry.date}|${entry.type}|${entry.scope}|${entry.description}`;
+}
+
+export function getExistingReleases(root: string): ReleaseEntry[] {
+  const releasesPath = join(root, 'core', 'RELEASES.json');
+  if (!existsSync(releasesPath)) return [];
+  try {
+    return readJsonArray<ReleaseEntry>(releasesPath);
+  } catch {
+    return [];
+  }
+}
+
+export function getLastRelease(root: string): ReleaseEntry | null {
+  const releases = getExistingReleases(root);
+  return releases.length > 0 ? releases[0] : null;
+}
+
+export function findUnreleasedTasks(root: string): UnreleasedTask[] {
+  const releases = getExistingReleases(root);
+  const releasedTaskIds = new Set(releases.flatMap(r => r.tasks ?? []));
+
+  const stateDir = join(root, 'state');
+  if (!existsSync(stateDir)) return [];
+
+  const files = fg.sync('*.md', { cwd: stateDir, absolute: true });
+  const result: UnreleasedTask[] = [];
+
+  for (const file of files) {
+    try {
+      const { data } = readFrontmatter<Record<string, unknown>>(file);
+      if (data.status !== 'completed') continue;
+      const id = String(data.id ?? '');
+      if (releasedTaskIds.has(id)) continue;
+      result.push({
+        id,
+        slug: basename(file, '.md'),
+        name: String(data.name ?? basename(file, '.md')),
+        description: String(data.description ?? ''),
+      });
+    } catch { /* skip unreadable */ }
+  }
+  return result;
+}
+
+export function findUnreleasedFeatures(root: string): UnreleasedFeature[] {
+  const featuresDir = join(root, 'core', 'features');
+  if (!existsSync(featuresDir)) return [];
+
+  const files = fg.sync('*.md', { cwd: featuresDir, absolute: true });
+  const result: UnreleasedFeature[] = [];
+
+  for (const file of files) {
+    try {
+      const { data } = readFrontmatter<Record<string, unknown>>(file);
+      if (data.released_version !== null && data.released_version !== undefined) continue;
+      result.push({
+        id: String(data.id ?? ''),
+        slug: basename(file, '.md'),
+        status: String(data.status ?? 'planning'),
+      });
+    } catch { /* skip */ }
+  }
+  return result;
+}
+
+export function findUnreleasedChangelog(root: string): UnreleasedChangelog[] {
+  const releases = getExistingReleases(root);
+  const releasedFingerprints = new Set<string>();
+  for (const rel of releases) {
+    for (const entry of rel.changelog ?? []) {
+      releasedFingerprints.add(changelogFingerprint(entry));
+    }
+  }
+
+  const changelogPath = join(root, 'core', 'CHANGELOG.json');
+  if (!existsSync(changelogPath)) return [];
+
+  try {
+    const entries = readJsonArray<ChangelogEntry>(changelogPath);
+    const result: UnreleasedChangelog[] = [];
+    for (let i = 0; i < entries.length; i++) {
+      const fp = changelogFingerprint(entries[i]);
+      if (!releasedFingerprints.has(fp)) {
+        result.push({ index: i, entry: entries[i] });
+      }
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}

@@ -50,6 +50,18 @@ These are your domain. You own their quality.
 
 ## Your Protocol
 
+### Step 0: Begin Consolidation Epoch
+
+Before reading any context or doing any work, mark the start of the consolidation cycle:
+
+```bash
+agentcontext sleep start
+```
+
+This records a timestamp epoch. When `sleep done` is called later, only sessions and dashboard changes from **before** this epoch will be cleared. Any new sessions that finish while you're working will be preserved for the next consolidation cycle.
+
+**This must be the very first command you run.**
+
 ### Step 1: Understand What Happened
 
 Read the brief from the main agent. If a task was referenced, read the task file directly:
@@ -70,7 +82,7 @@ Use this decision tree:
 | **New user preference** | User file (User Preferences section) | — |
 | **New project constraint/rule** | Soul file (Constraints or Rules section) | — |
 | **Bug found or fixed** | `agentcontext core changelog add` (type: fix) | Memory (Known Issues section) |
-| **Feature work** | `agentcontext features insert <name> changelog "..."` | Feature PRD (technical_details if needed) |
+| **Feature work** | Consolidate task content into feature PRD (see Step 5) | Feature PRD sections (user_stories, criteria, constraints, technical_details) |
 | **Deep research completed** | `agentcontext knowledge create <topic>` (use standard tags) or Edit existing | Memory (reference to knowledge file) |
 | **Deployment / release** | `agentcontext core releases add` | Changelog |
 | **Tech stack change** | Edit `_agent_context/core/4.tech_stack.md` directly + update its `summary` frontmatter | Memory (Technical Decisions) |
@@ -139,7 +151,9 @@ After updating, check each file you touched:
 
 5. **Summarize, don't hoard** — when condensing, preserve the decision and its rationale. Remove the deliberation process.
 
-### Step 5: Feature Detection
+### Step 5: Feature Detection & Consolidation
+
+Features are **retrospective product documentation**, never updated during active work. The main agent works exclusively in task files. Your job is to consolidate task content into feature PRDs.
 
 After any work, check: was this **feature work**?
 
@@ -149,12 +163,25 @@ After any work, check: was this **feature work**?
 - Bug fix → **no** (unless it reveals a design change worth documenting)
 - Infrastructure / devops → **no**
 
-If yes:
+If yes, consolidate FROM the task into the feature:
+
+1. **Find the source task**: Check `related_feature` in task frontmatter, or match by name
+2. **Read the task's rich sections**: Why, User Stories, Acceptance Criteria, Constraints & Decisions, Technical Details, Notes
+3. **Consolidate into the feature PRD** (synthesis, not copying):
+   - **User Stories**: Merge task's stories into feature (deduplicate, refine wording)
+   - **Acceptance Criteria**: Merge task's criteria (refine or add to feature's)
+   - **Constraints & Decisions**: Copy significant architectural decisions with dates
+   - **Technical Details**: Synthesize a "how it works" summary from task notes and changelog
+   - **Changelog**: Add a summary entry of what was accomplished, not a copy of every task log
+4. **Create or update**:
 ```
 Grep _agent_context/core/features/ for the feature name   # Does a PRD exist?
 agentcontext features create <feature-name>                # If not, create one
-agentcontext features insert <name> changelog "What changed and why"
+agentcontext features insert <name> changelog "Consolidated from task: [summary]"
+# Use features insert or direct Edit for other sections as needed
 ```
+
+The feature PRD should read like polished product documentation, not a raw task dump. Summarize, deduplicate, and organize.
 
 ### Step 6: Mark Sleep Complete
 
@@ -164,7 +191,7 @@ After all consolidation updates are done, reset the sleep debt:
 agentcontext sleep done "Consolidated [brief summary of what was processed]"
 ```
 
-This resets the debt counter to 0, archives the accumulated entries, and records the current date as the last sleep time.
+This clears sessions and dashboard changes from before the epoch set in Step 0, recalculates remaining debt from any post-epoch sessions, and records the current date as the last sleep time. Post-epoch sessions (from parallel work that happened while you were consolidating) are preserved for the next cycle.
 
 ### Step 7: Report Back
 

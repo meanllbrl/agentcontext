@@ -168,6 +168,110 @@ describe('sleep (integration)', () => {
     expect(output).toContain('Last sleep:');
   });
 
+  // --- Epoch-based consolidation tests ---
+
+  it('sleep start sets sleep_started_at in .sleep.json', () => {
+    const output = run('sleep start', tmpDir);
+    expect(output).toContain('Consolidation epoch set');
+
+    const sleepFile = join(ctx, 'state', '.sleep.json');
+    const state = JSON.parse(readFileSync(sleepFile, 'utf-8'));
+    expect(state.sleep_started_at).toBeTruthy();
+    expect(new Date(state.sleep_started_at).getTime()).not.toBeNaN();
+  });
+
+  it('sleep start warns when epoch already set', () => {
+    run('sleep start', tmpDir);
+    const output = run('sleep start', tmpDir);
+    expect(output).toContain('already in progress');
+    expect(output).toContain('Consolidation epoch set');
+  });
+
+  it('sleep done with epoch preserves post-epoch sessions', () => {
+    // Add pre-epoch session
+    run('sleep add 2 Pre-epoch work', tmpDir);
+
+    // Set epoch
+    run('sleep start', tmpDir);
+
+    // Simulate a post-epoch session by manually writing to .sleep.json
+    const sleepFile = join(ctx, 'state', '.sleep.json');
+    const state = JSON.parse(readFileSync(sleepFile, 'utf-8'));
+    const futureTime = new Date(Date.now() + 60000).toISOString();
+    state.sessions.unshift({
+      session_id: 'post-epoch-sess',
+      transcript_path: null,
+      stopped_at: futureTime,
+      last_assistant_message: 'Post-epoch work',
+      change_count: 5,
+      score: 2,
+    });
+    state.debt += 2;
+    writeFileSync(sleepFile, JSON.stringify(state, null, 2));
+
+    // Run sleep done
+    const doneOutput = run('sleep done Consolidated pre-epoch work', tmpDir);
+    expect(doneOutput).toContain('post-epoch session(s) preserved');
+
+    // Verify post-epoch session survives
+    const finalState = JSON.parse(readFileSync(sleepFile, 'utf-8'));
+    expect(finalState.sessions).toHaveLength(1);
+    expect(finalState.sessions[0].session_id).toBe('post-epoch-sess');
+    expect(finalState.debt).toBe(2);
+    expect(finalState.sleep_started_at).toBeNull();
+    expect(finalState.last_sleep_summary).toBe('Consolidated pre-epoch work');
+  });
+
+  it('sleep done with epoch preserves post-epoch dashboard changes', () => {
+    run('sleep start', tmpDir);
+
+    // Manually add a dashboard change with post-epoch timestamp
+    const sleepFile = join(ctx, 'state', '.sleep.json');
+    const state = JSON.parse(readFileSync(sleepFile, 'utf-8'));
+    const futureTime = new Date(Date.now() + 60000).toISOString();
+    state.dashboard_changes = [
+      {
+        timestamp: futureTime,
+        entity: 'task',
+        action: 'update',
+        target: 'some-task',
+        summary: 'Post-epoch dashboard change',
+      },
+    ];
+    writeFileSync(sleepFile, JSON.stringify(state, null, 2));
+
+    run('sleep done Consolidated things', tmpDir);
+    const finalState = JSON.parse(readFileSync(sleepFile, 'utf-8'));
+    expect(finalState.dashboard_changes).toHaveLength(1);
+    expect(finalState.dashboard_changes[0].summary).toBe('Post-epoch dashboard change');
+  });
+
+  it('sleep done without epoch clears all sessions (backward compat)', () => {
+    run('sleep add 2 Some work', tmpDir);
+    run('sleep add 3 More work', tmpDir);
+
+    // Do NOT call sleep start
+    const doneOutput = run('sleep done Consolidated everything', tmpDir);
+    expect(doneOutput).toContain('Debt reset from 5 to 0');
+
+    const sleepFile = join(ctx, 'state', '.sleep.json');
+    const state = JSON.parse(readFileSync(sleepFile, 'utf-8'));
+    expect(state.debt).toBe(0);
+    expect(state.sessions).toHaveLength(0);
+  });
+
+  it('snapshot shows consolidation in progress when epoch is set', () => {
+    writeFileSync(
+      join(ctx, 'core', '0.soul.md'),
+      '---\nname: test\n---\n\nTest project.\n',
+    );
+    run('sleep add 1 Some work', tmpDir);
+    run('sleep start', tmpDir);
+
+    const output = run('snapshot', tmpDir);
+    expect(output).toContain('Consolidation in progress');
+  });
+
   it('.sleep.json is not listed as a task in snapshot', () => {
     writeFileSync(
       join(ctx, 'core', '0.soul.md'),

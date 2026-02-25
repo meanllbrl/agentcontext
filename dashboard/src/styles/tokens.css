@@ -1,0 +1,114 @@
+:root {
+  /* ─── 4px Grid Spacing ─── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ─── Typography ─── */
+  --font-family: 'Visby CF', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-size-2xl: 32px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* ─── Border Radius ─── */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* ─── Brand Colors (Purple-to-Magenta) ─── */
+  --color-brand-deep: hsl(276 74% 31%);
+  --color-brand-mid: hsl(278 72% 38%);
+  --color-brand-vivid: hsl(287 100% 33%);
+  --color-brand-hot: hsl(311 97% 43%);
+  --gradient-brand: linear-gradient(135deg, hsl(287 100% 33%), hsl(311 97% 43%));
+  --gradient-brand-subtle: linear-gradient(135deg, hsl(287 100% 33% / 0.1), hsl(311 97% 43% / 0.1));
+
+  /* ─── Light Mode ─── */
+  --color-bg: hsl(0 0% 100%);
+  --color-bg-secondary: hsl(0 0% 97.5%);
+  --color-bg-tertiary: hsl(0 0% 94%);
+  --color-bg-elevated: hsl(0 0% 100%);
+  --color-text: hsl(0 0% 9%);
+  --color-text-secondary: hsl(0 0% 40%);
+  --color-text-tertiary: hsl(0 0% 55%);
+  --color-text-on-brand: hsl(0 0% 100%);
+  --color-border: hsl(0 0% 90%);
+  --color-border-hover: hsl(0 0% 78%);
+  --color-border-focus: var(--color-brand-vivid);
+
+  /* ─── Semantic Colors ─── */
+  --color-success: hsl(142 71% 40%);
+  --color-success-subtle: hsl(142 71% 95%);
+  --color-warning: hsl(38 92% 50%);
+  --color-warning-subtle: hsl(38 92% 95%);
+  --color-error: hsl(0 84% 60%);
+  --color-error-subtle: hsl(0 84% 96%);
+
+  /* ─── Priority Colors ─── */
+  --color-priority-critical: hsl(0 84% 60%);
+  --color-priority-high: hsl(38 92% 50%);
+  --color-priority-medium: hsl(0 0% 50%);
+  --color-priority-low: hsl(0 0% 70%);
+
+  /* ─── Status Colors ─── */
+  --color-status-todo: hsl(38 80% 50%);
+  --color-status-in-progress: hsl(220 90% 56%);
+  --color-status-completed: hsl(142 71% 40%);
+
+  /* ─── Shadows (Purple Tint) ─── */
+  --shadow-sm: 0 1px 2px hsl(276 20% 10% / 0.05);
+  --shadow-md: 0 2px 8px hsl(276 20% 10% / 0.08);
+  --shadow-lg: 0 4px 16px hsl(276 20% 10% / 0.12);
+  --shadow-xl: 0 8px 32px hsl(276 20% 10% / 0.16);
+
+  /* ─── Transitions ─── */
+  --transition-fast: 120ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 320ms ease;
+
+  /* ─── Layout ─── */
+  --sidebar-width: 240px;
+  --header-height: 56px;
+}
+
+/* ─── Dark Mode ─── */
+[data-theme='dark'] {
+  --color-bg: hsl(240 6% 9%);
+  --color-bg-secondary: hsl(240 5% 12%);
+  --color-bg-tertiary: hsl(240 4% 16%);
+  --color-bg-elevated: hsl(240 5% 14%);
+  --color-text: hsl(0 0% 93%);
+  --color-text-secondary: hsl(0 0% 63%);
+  --color-text-tertiary: hsl(0 0% 45%);
+  --color-border: hsl(240 4% 20%);
+  --color-border-hover: hsl(240 4% 30%);
+  --gradient-brand-subtle: linear-gradient(135deg, hsl(287 100% 33% / 0.15), hsl(311 97% 43% / 0.15));
+  --color-success-subtle: hsl(142 71% 12%);
+  --color-warning-subtle: hsl(38 80% 12%);
+  --color-error-subtle: hsl(0 84% 12%);
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.2);
+  --shadow-md: 0 2px 8px hsl(0 0% 0% / 0.3);
+  --shadow-lg: 0 4px 16px hsl(0 0% 0% / 0.4);
+  --shadow-xl: 0 8px 32px hsl(0 0% 0% / 0.5);
+}

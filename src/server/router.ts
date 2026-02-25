@@ -1,0 +1,64 @@
+import { IncomingMessage, ServerResponse } from 'node:http';
+
+export type RouteHandler = (
+  req: IncomingMessage,
+  res: ServerResponse,
+  params: Record<string, string>,
+  contextRoot: string,
+) => Promise<void>;
+
+interface Route {
+  method: string;
+  pattern: RegExp;
+  paramNames: string[];
+  handler: RouteHandler;
+}
+
+export class Router {
+  private routes: Route[] = [];
+
+  add(method: string, path: string, handler: RouteHandler): void {
+    const paramNames: string[] = [];
+    const pattern = path.replace(/:([a-zA-Z_]+)/g, (_match, name) => {
+      paramNames.push(name);
+      return '([^/]+)';
+    });
+    this.routes.push({
+      method: method.toUpperCase(),
+      pattern: new RegExp(`^${pattern}$`),
+      paramNames,
+      handler,
+    });
+  }
+
+  get(path: string, handler: RouteHandler): void {
+    this.add('GET', path, handler);
+  }
+
+  post(path: string, handler: RouteHandler): void {
+    this.add('POST', path, handler);
+  }
+
+  patch(path: string, handler: RouteHandler): void {
+    this.add('PATCH', path, handler);
+  }
+
+  put(path: string, handler: RouteHandler): void {
+    this.add('PUT', path, handler);
+  }
+
+  match(method: string, url: string): { handler: RouteHandler; params: Record<string, string> } | null {
+    for (const route of this.routes) {
+      if (route.method !== method.toUpperCase()) continue;
+      const match = url.match(route.pattern);
+      if (match) {
+        const params: Record<string, string> = {};
+        route.paramNames.forEach((name, i) => {
+          params[name] = decodeURIComponent(match[i + 1]);
+        });
+        return { handler: route.handler, params };
+      }
+    }
+    return null;
+  }
+}

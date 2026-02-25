@@ -18,18 +18,38 @@ export interface SessionRecord {
   score: number | null;
 }
 
+export interface FieldChange {
+  field: string;
+  from: string | number | boolean | string[] | null;
+  to: string | number | boolean | string[] | null;
+}
+
+export interface DashboardChange {
+  timestamp: string;
+  entity: 'task' | 'core' | 'knowledge' | 'feature' | 'sleep';
+  action: 'create' | 'update' | 'delete';
+  target: string;
+  field?: string;
+  fields?: FieldChange[];
+  summary: string;
+}
+
 export interface SleepState {
   debt: number;
   last_sleep: string | null;
   last_sleep_summary: string | null;
+  sleep_started_at: string | null;
   sessions: SessionRecord[];
+  dashboard_changes: DashboardChange[];
 }
 
 const DEFAULT_SLEEP_STATE: SleepState = {
   debt: 0,
   last_sleep: null,
   last_sleep_summary: null,
+  sleep_started_at: null,
   sessions: [],
+  dashboard_changes: [],
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -53,6 +73,7 @@ export function readSleepState(root: string): SleepState {
       ...DEFAULT_SLEEP_STATE,
       ...parsed,
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      dashboard_changes: Array.isArray(parsed.dashboard_changes) ? parsed.dashboard_changes as DashboardChange[] : [],
     };
   } catch {
     return { ...DEFAULT_SLEEP_STATE, sessions: [] };
@@ -165,6 +186,23 @@ export function registerSleepCommand(program: Command): void {
       }
     });
 
+  // --- start ---
+  sleep
+    .command('start')
+    .description('Mark beginning of consolidation (sets epoch for safe clearing)')
+    .action(() => {
+      const root = ensureContextRoot();
+      const state = readSleepState(root);
+
+      if (state.sleep_started_at) {
+        warn(`Consolidation already in progress (started ${state.sleep_started_at}). Overwriting epoch.`);
+      }
+
+      state.sleep_started_at = new Date().toISOString();
+      writeSleepState(root, state);
+      success(`Consolidation epoch set: ${state.sleep_started_at}`);
+    });
+
   // --- done ---
   sleep
     .command('done')
@@ -180,14 +218,34 @@ export function registerSleepCommand(program: Command): void {
       const root = ensureContextRoot();
       const state = readSleepState(root);
       const previousDebt = state.debt;
+      const epoch = state.sleep_started_at;
 
-      state.debt = 0;
+      if (epoch) {
+        // Epoch-based: only clear sessions/changes from before sleep started
+        state.sessions = state.sessions.filter(s => {
+          if (!s.stopped_at) return false;
+          return s.stopped_at > epoch;
+        });
+        state.dashboard_changes = state.dashboard_changes.filter(c => c.timestamp > epoch);
+        state.debt = state.sessions.reduce((sum, s) => sum + (s.score ?? 0), 0);
+      } else {
+        // Backward compat: no epoch, clear everything
+        state.sessions = [];
+        state.dashboard_changes = [];
+        state.debt = 0;
+      }
+
       state.last_sleep = today();
       state.last_sleep_summary = summary.trim();
-      state.sessions = [];
+      state.sleep_started_at = null;
 
       writeSleepState(root, state);
-      success(`Consolidation complete. Debt reset from ${previousDebt} to 0.`);
+
+      if (epoch && state.sessions.length > 0) {
+        success(`Consolidation complete. Debt reduced from ${previousDebt} to ${state.debt}. ${state.sessions.length} post-epoch session(s) preserved.`);
+      } else {
+        success(`Consolidation complete. Debt reset from ${previousDebt} to ${state.debt}.`);
+      }
     });
 
   // --- debt ---

@@ -1,0 +1,19 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.shell-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.shell-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6);
+  background: var(--color-bg);
+}

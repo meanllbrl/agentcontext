@@ -67,6 +67,92 @@ describe('CLI commands (integration)', () => {
       expect(existsSync(join(tmpDir, '_agent_context', 'state', 'my-task.md'))).toBe(true);
     });
 
+    it('creates a task with rich template sections', () => {
+      run('tasks create rich-task --description "Test rich" --priority medium --why "Testing rich templates"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'rich-task.md'), 'utf-8');
+      expect(content).toContain('## Why');
+      expect(content).toContain('Testing rich templates');
+      expect(content).toContain('## User Stories');
+      expect(content).toContain('## Acceptance Criteria');
+      expect(content).toContain('## Constraints & Decisions');
+      expect(content).toContain('## Technical Details');
+      expect(content).toContain('## Notes');
+      expect(content).toContain('## Changelog');
+      expect(content).toContain('related_feature: null');
+    });
+
+    it('creates a task without --why and uses default', () => {
+      run('tasks create no-why --description "No why" --priority low', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'no-why.md'), 'utf-8');
+      expect(content).toContain('## Why');
+      expect(content).toContain('(To be defined)');
+    });
+
+    it('inserts into task user_stories section', () => {
+      run('tasks create ins-test --description "Test" --priority low', tmpDir);
+      const output = run('tasks insert ins-test user_stories "As a user, I want to test inserts"', tmpDir);
+      expect(output).toContain('Inserted');
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'ins-test.md'), 'utf-8');
+      expect(content).toContain('As a user, I want to test inserts');
+    });
+
+    it('inserts into task acceptance_criteria section', () => {
+      run('tasks create ac-test --description "Test" --priority low', tmpDir);
+      run('tasks insert ac-test acceptance_criteria "Tests pass with 100% coverage"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'ac-test.md'), 'utf-8');
+      expect(content).toContain('Tests pass with 100% coverage');
+    });
+
+    it('inserts into task constraints with auto-date', () => {
+      run('tasks create ct-test --description "Test" --priority low', tmpDir);
+      run('tasks insert ct-test constraints "No external dependencies"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'ct-test.md'), 'utf-8');
+      expect(content).toMatch(/\*\*\[\d{4}-\d{2}-\d{2}\]\*\* No external dependencies/);
+    });
+
+    it('inserts into task changelog with auto-date header', () => {
+      run('tasks create cl-test --description "Test" --priority low', tmpDir);
+      run('tasks insert cl-test changelog "Added pagination support"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'cl-test.md'), 'utf-8');
+      expect(content).toContain('Added pagination support');
+      expect(content).toMatch(/### \d{4}-\d{2}-\d{2} - Update/);
+    });
+
+    it('rejects unknown task section', () => {
+      run('tasks create uk-test --description "Test" --priority low', tmpDir);
+      const output = run('tasks insert uk-test invalid_section "content"', tmpDir);
+      expect(output).toContain('Unknown section');
+    });
+
+    it('inserts into old-format task with createIfMissing', () => {
+      // Create a minimal old-format task (only Changelog section)
+      const stateDir = join(tmpDir, '_agent_context', 'state');
+      const oldContent = `---
+id: "task_old123"
+name: "old-task"
+description: "Old format task"
+priority: "medium"
+status: "todo"
+created_at: "2026-01-01"
+updated_at: "2026-01-01"
+tags: []
+parent_task: null
+---
+
+## Changelog
+<!-- LIFO: newest entry at top -->
+
+### 2026-01-01 - Created
+- Task created.
+`;
+      writeFileSync(join(stateDir, 'old-task.md'), oldContent, 'utf-8');
+      const output = run('tasks insert old-task notes "Edge case found"', tmpDir);
+      expect(output).toContain('Inserted');
+      const content = readFileSync(join(stateDir, 'old-task.md'), 'utf-8');
+      expect(content).toContain('## Notes');
+      expect(content).toContain('Edge case found');
+    });
+
     it('logs progress to a task', () => {
       run('tasks create log-test --description "Test" --priority low', tmpDir);
       run('tasks log log-test "Implemented feature X"', tmpDir);
@@ -80,6 +166,41 @@ describe('CLI commands (integration)', () => {
       const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'done-task.md'), 'utf-8');
       expect(content).toContain('status: completed');
       expect(content).toContain('All done');
+    });
+
+    it('creates a task with no flags (uses defaults, no prompts)', () => {
+      const output = run('tasks create defaults-test', tmpDir);
+      expect(output).toContain('created');
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'defaults-test.md'), 'utf-8');
+      expect(content).toContain('priority: "medium"');
+      expect(content).toContain('status: "todo"');
+      expect(content).toContain('description: "defaults-test"');
+      expect(content).toContain('tags: []');
+    });
+
+    it('creates a task with --status and --tags flags', () => {
+      run('tasks create flagged-task -d "Flagged" -p high -s in_progress -t "backend,api"', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'flagged-task.md'), 'utf-8');
+      expect(content).toContain('status: "in_progress"');
+      expect(content).toContain('priority: "high"');
+      expect(content).toContain('"backend"');
+      expect(content).toContain('"api"');
+    });
+
+    it('creates a task with --status completed', () => {
+      run('tasks create completed-task -d "Done from start" -s completed', tmpDir);
+      const content = readFileSync(join(tmpDir, '_agent_context', 'state', 'completed-task.md'), 'utf-8');
+      expect(content).toContain('status: "completed"');
+    });
+
+    it('rejects invalid status', () => {
+      const output = run('tasks create bad-status -s done', tmpDir);
+      expect(output).toContain('Status must be one of');
+    });
+
+    it('rejects invalid priority', () => {
+      const output = run('tasks create bad-prio -p urgent', tmpDir);
+      expect(output).toContain('Priority must be one of');
     });
   });
 
@@ -377,6 +498,107 @@ describe('CLI commands (integration)', () => {
       expect(snapshot).toContain('implement-auth');
       expect(snapshot).toContain('todo');
       expect(snapshot).toContain('authentication');
+    });
+  });
+
+  describe('releases', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+    });
+
+    it('creates a release with --yes', () => {
+      const output = run('core releases add --ver 1.0.0 --summary "Initial release" --yes', tmpDir);
+      expect(output).toContain('Release 1.0.0 recorded');
+      const releases = JSON.parse(readFileSync(join(tmpDir, '_agent_context', 'core', 'RELEASES.json'), 'utf-8'));
+      expect(releases[0].version).toBe('1.0.0');
+      expect(releases[0].id).toMatch(/^rel_/);
+      expect(Array.isArray(releases[0].features)).toBe(true);
+      expect(Array.isArray(releases[0].tasks)).toBe(true);
+      expect(Array.isArray(releases[0].changelog)).toBe(true);
+    });
+
+    it('rejects duplicate version', () => {
+      run('core releases add --ver 1.0.0 --summary "First" --yes', tmpDir);
+      const output = run('core releases add --ver 1.0.0 --summary "Dup" --yes', tmpDir);
+      expect(output).toContain('already exists');
+    });
+
+    it('auto-discovers completed tasks', () => {
+      run('tasks create auth -d "Build auth" -p high', tmpDir);
+      run('tasks complete auth "Done"', tmpDir);
+      const output = run('core releases add --ver 1.0.0 --summary "Auth release" --yes', tmpDir);
+      expect(output).toContain('1 tasks');
+      const releases = JSON.parse(readFileSync(join(tmpDir, '_agent_context', 'core', 'RELEASES.json'), 'utf-8'));
+      expect(releases[0].tasks).toHaveLength(1);
+      expect(releases[0].tasks[0]).toMatch(/^task_/);
+    });
+
+    it('auto-discovers unreleased features and back-populates released_version', () => {
+      run('features create auth --why "Login"', tmpDir);
+      run('core releases add --ver 1.0.0 --summary "Auth release" --yes', tmpDir);
+      const releases = JSON.parse(readFileSync(join(tmpDir, '_agent_context', 'core', 'RELEASES.json'), 'utf-8'));
+      expect(releases[0].features).toHaveLength(1);
+      // Verify back-population
+      const feature = readFileSync(join(tmpDir, '_agent_context', 'core', 'features', 'auth.md'), 'utf-8');
+      expect(feature).toContain('released_version');
+      expect(feature).toContain('1.0.0');
+    });
+
+    it('auto-discovers changelog entries', () => {
+      const changelogPath = join(tmpDir, '_agent_context', 'core', 'CHANGELOG.json');
+      const entries = JSON.parse(readFileSync(changelogPath, 'utf-8'));
+      entries.unshift({ date: '2026-02-25', type: 'feat', scope: 'auth', description: 'Added JWT', breaking: false });
+      writeFileSync(changelogPath, JSON.stringify(entries, null, 2), 'utf-8');
+
+      run('core releases add --ver 1.0.0 --summary "Test" --yes', tmpDir);
+      const releases = JSON.parse(readFileSync(join(tmpDir, '_agent_context', 'core', 'RELEASES.json'), 'utf-8'));
+      // Should include the manually added entry plus the init entry
+      expect(releases[0].changelog.length).toBeGreaterThanOrEqual(1);
+      expect(releases[0].changelog.some((c: any) => c.description === 'Added JWT')).toBe(true);
+    });
+
+    it('does not re-include already-released items', () => {
+      run('tasks create task1 -d "T1" -p low', tmpDir);
+      run('tasks complete task1 "Done"', tmpDir);
+      run('features create feat1 --why "Why"', tmpDir);
+
+      run('core releases add --ver 1.0.0 --summary "R1" --yes', tmpDir);
+      run('core releases add --ver 1.1.0 --summary "R2" --yes', tmpDir);
+
+      const releases = JSON.parse(readFileSync(join(tmpDir, '_agent_context', 'core', 'RELEASES.json'), 'utf-8'));
+      // v1.1.0 is at index 0 (LIFO), should have empty arrays
+      expect(releases[0].version).toBe('1.1.0');
+      expect(releases[0].tasks).toHaveLength(0);
+      expect(releases[0].features).toHaveLength(0);
+      expect(releases[0].changelog).toHaveLength(0);
+    });
+
+    it('lists releases', () => {
+      run('core releases add --ver 1.0.0 --summary "First" --yes', tmpDir);
+      run('core releases add --ver 1.1.0 --summary "Second" --yes', tmpDir);
+      const output = run('core releases list', tmpDir);
+      expect(output).toContain('1.0.0');
+      expect(output).toContain('1.1.0');
+    });
+
+    it('shows release details', () => {
+      run('core releases add --ver 1.0.0 --summary "Detailed release" --yes', tmpDir);
+      const output = run('core releases show 1.0.0', tmpDir);
+      expect(output).toContain('1.0.0');
+      expect(output).toContain('Detailed release');
+    });
+
+    it('errors on show with nonexistent version', () => {
+      const output = run('core releases show 9.9.9', tmpDir);
+      expect(output).toContain('not found');
+    });
+
+    it('includes latest release in snapshot', () => {
+      run('core releases add --ver 1.0.0 --summary "First release" --yes', tmpDir);
+      const output = run('snapshot', tmpDir);
+      expect(output).toContain('Latest Release');
+      expect(output).toContain('1.0.0');
+      expect(output).toContain('First release');
     });
   });
 });

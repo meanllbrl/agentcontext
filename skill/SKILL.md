@@ -128,7 +128,7 @@ These files vary across projects. Do not assume a fixed list. Always discover dy
 
 **`agentcontext` CLI** for:
 - Creating structured entries (tasks, features, knowledge, changelog, releases)
-- Inserting into LIFO structures (changelog entries, task logs, feature sections)
+- Inserting into LIFO structures (changelog entries, task sections, feature sections)
 - Scaffolding (`agentcontext init`, `agentcontext features create`)
 
 ---
@@ -142,6 +142,7 @@ These files vary across projects. Do not assume a fixed list. Always discover dy
 5. **LIFO everywhere.** Newest entries at top of changelogs, memory, constraints.
 6. **~200 line limit** on context files. Extract detail to knowledge, keep summary + reference.
 7. **Log every session** that modifies code or makes decisions. This is the cross-session continuity mechanism.
+8. **Features are sleep-only.** Never update feature PRDs during active work. All working context goes into the task body. The sleep agent consolidates task content into features.
 
 ---
 
@@ -177,19 +178,38 @@ Sleep debt accumulates automatically via hooks (tracks Write/Edit tool uses per 
 
 **Flow**: Tell user you're consolidating -> dispatch `agentcontext-rem-sleep` with brief -> wait for completion -> report back.
 
+**Epoch safety**: The rem-sleep agent calls `sleep start` before beginning work, which sets a timestamp epoch. `sleep done` only clears sessions/changes from before the epoch. Parallel sessions that finish during consolidation are preserved for the next cycle.
+
 For non-file-change work (architecture discussions, decisions): `agentcontext sleep add <score> "<reason>"`
 
 ---
 
 ## Task Protocol
 
+Tasks are your **working documents**. All context, decisions, user stories, acceptance criteria, constraints, and notes go into the task body. Features are retrospective product documentation updated exclusively during sleep consolidation. Never update features during active work.
+
 ```bash
+# Discovery
 Glob _agent_context/state/*.md                                          # See all tasks
-Read _agent_context/state/<task>.md                                     # Load context (Changelog = where you left off)
-agentcontext tasks create <name> --description "..." --priority medium  # New task
-agentcontext tasks log <name> "what was done"                           # Log progress (MANDATORY)
+Read _agent_context/state/<task>.md                                     # Load context (Why + Changelog = where you left off)
+
+# Create (rich task with Why, User Stories, Acceptance Criteria, Constraints, Technical Details, Notes, Changelog)
+agentcontext tasks create <name> --description "..." --priority medium --why "What this task accomplishes"
+
+# Enrich (insert into any section during active work)
+agentcontext tasks insert <name> user_stories "As a user, I want X so that Y"
+agentcontext tasks insert <name> acceptance_criteria "API returns 200 with paginated results"
+agentcontext tasks insert <name> constraints "Using native fetch, no axios dependency"
+agentcontext tasks insert <name> technical_details "Key file: src/api/tasks.ts, uses Express router"
+agentcontext tasks insert <name> notes "Edge case: empty results should return [] not null"
+agentcontext tasks insert <name> changelog "Implemented pagination for /api/tasks"
+
+# Lifecycle
+agentcontext tasks log <name> "what was done"                           # Quick changelog entry (MANDATORY)
 agentcontext tasks complete <name> "summary"                            # Mark complete
 ```
+
+Task insert sections: `why`, `user_stories`, `acceptance_criteria`, `constraints`, `technical_details`, `notes`, `changelog`
 
 ---
 
@@ -199,7 +219,9 @@ agentcontext tasks complete <name> "summary"                            # Mark c
 - Edit `0.soul.md`, `1.user.md`, `2.memory.md` directly with native tools
 - `agentcontext core changelog add` for code changes
 - `agentcontext tasks log <name> "progress"` for task updates
-- `agentcontext features insert <name> <section> "<content>"` for feature work
+- `agentcontext tasks insert <name> <section> "<content>"` for enriching task context
+
+**Features are sleep-only.** Feature PRDs are retrospective product documentation. They are created and updated exclusively by the sleep agent during consolidation. Use tasks for all in-progress context.
 
 **Major consolidation** (multiple files, reorganization) -> dispatch sleep agent.
 
@@ -234,17 +256,21 @@ All commands prefixed with `agentcontext`. For reading/searching, use native too
 |---------|-------------|
 | `init` | Initialize `_agent_context/` |
 | `core changelog add` | Add changelog entry (interactive) |
-| `core releases add` | Add release entry (interactive) |
+| `core releases add [--ver v --summary s --yes]` | Create release with auto-discovered tasks/features/changelog |
+| `core releases list [-n count]` | List recent releases |
+| `core releases show <version>` | Show release details |
 | `features create <name>` | Create feature PRD |
 | `features insert <name> <section> <content>` | Insert into feature section |
 | `knowledge create <name>` | Create knowledge file |
 | `knowledge index [--tag <tag>]` | Show knowledge index |
 | `knowledge tags` | List standard tags |
-| `tasks create <name>` | Create task |
+| `tasks create <name> [-d desc] [-p priority] [-s status] [-t tags] [-w why]` | Create task (defaults: priority=medium, status=todo) |
+| `tasks insert <name> <section> <content>` | Insert into task section |
 | `tasks complete <name>` | Complete task |
 | `tasks log <name> <content>` | Log task progress |
 | `sleep status` | Show sleep state and history |
 | `sleep add <score> "<desc>"` | Manual debt add |
+| `sleep start` | Begin consolidation epoch (safe clearing) |
 | `sleep done "<summary>"` | Mark consolidation complete |
 | `sleep debt` | Output debt number (programmatic) |
 | `hook session-start` | SessionStart hook handler |
@@ -256,3 +282,4 @@ All commands prefixed with `agentcontext`. For reading/searching, use native too
 | `install-skill` | Install skill + hooks |
 
 Feature insert sections: `changelog`, `notes`, `technical_details`, `constraints`, `user_stories`, `acceptance_criteria`, `why`
+Task insert sections: `why`, `user_stories`, `acceptance_criteria`, `constraints`, `technical_details`, `notes`, `changelog`

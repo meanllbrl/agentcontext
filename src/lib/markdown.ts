@@ -87,15 +87,24 @@ export function insertToSection(
   sectionName: string,
   newContent: string,
   position: 'top' | 'bottom' = 'top',
+  createIfMissing: boolean = false,
 ): void {
   const raw = readFileSync(filePath, 'utf-8');
   const parsed = matter(raw);
   const lines = parsed.content.split('\n');
   const sections = parseSections(parsed.content);
-  const section = findSection(sections, sectionName);
+  let section = findSection(sections, sectionName);
 
   if (!section) {
-    throw new Error(`Section "${sectionName}" not found in ${filePath}`);
+    if (createIfMissing) {
+      // Append a new ## section at the end of the file body
+      const headerLine = `## ${sectionName}`;
+      lines.push('', headerLine);
+      const startLine = lines.length - 1;
+      section = { name: sectionName, level: 2, startLine, endLine: startLine };
+    } else {
+      throw new Error(`Section "${sectionName}" not found in ${filePath}`);
+    }
   }
 
   // Find the insertion point

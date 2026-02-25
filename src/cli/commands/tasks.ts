@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { input, select } from '@inquirer/prompts';
+import { input } from '@inquirer/prompts';
 import fg from 'fast-glob';
 import { ensureContextRoot } from '../../lib/context-path.js';
 import { updateFrontmatterFields } from '../../lib/frontmatter.js';
@@ -44,10 +44,67 @@ function findTaskFile(name: string): string | null {
   return null;
 }
 
+function getTaskTemplate(): string {
+  const candidates = [
+    join(new URL('.', import.meta.url).pathname, '..', '..', 'templates', 'task.md'),
+    join(new URL('.', import.meta.url).pathname, '..', 'templates', 'task.md'),
+  ];
+
+  for (const path of candidates) {
+    if (existsSync(path)) {
+      return readFileSync(path, 'utf-8');
+    }
+  }
+
+  // Inline fallback
+  return `---
+id: "{{ID}}"
+name: "{{NAME}}"
+description: "{{DESCRIPTION}}"
+priority: "{{PRIORITY}}"
+status: "{{STATUS}}"
+created_at: "{{DATE}}"
+updated_at: "{{DATE}}"
+tags: {{TAGS}}
+parent_task: null
+related_feature: null
+---
+
+## Why
+
+{{WHY}}
+
+## User Stories
+
+- [ ] As a [user], I want [action] so that [outcome]
+
+## Acceptance Criteria
+
+- (Specific, testable conditions for this task to be complete)
+
+## Constraints & Decisions
+<!-- LIFO: newest decision at top -->
+
+## Technical Details
+
+(Key files, services, dependencies, implementation approach.)
+
+## Notes
+
+(Working notes, edge cases, open questions.)
+
+## Changelog
+<!-- LIFO: newest entry at top -->
+
+### {{DATE}} - Created
+- Task created.
+`;
+}
+
 export function registerTasksCommand(program: Command): void {
   const tasks = program
     .command('tasks')
-    .description('Create tasks, log progress, and mark complete');
+    .description('Create tasks, log progress, insert into sections, and mark complete');
 
   // Create task
   tasks
@@ -56,7 +113,10 @@ export function registerTasksCommand(program: Command): void {
     .description('Create a new task')
     .option('-d, --description <desc>', 'Task description')
     .option('-p, --priority <priority>', 'Priority (critical, high, medium, low)')
-    .action(async (name: string, opts: { description?: string; priority?: string }) => {
+    .option('-s, --status <status>', 'Status (todo, in_progress, completed)')
+    .option('-t, --tags <tags>', 'Comma-separated tags')
+    .option('-w, --why <why>', 'Why is this task needed?')
+    .action(async (name: string, opts: { description?: string; priority?: string; status?: string; tags?: string; why?: string }) => {
       const dir = getStateDir();
       const slug = slugify(name);
       const filePath = join(dir, `${slug}.md`);
@@ -66,40 +126,108 @@ export function registerTasksCommand(program: Command): void {
         return;
       }
 
-      const description = opts.description || await input({ message: 'Description:' });
+      const validPriorities = ['critical', 'high', 'medium', 'low'];
+      const validStatuses = ['todo', 'in_progress', 'completed'];
 
-      const priority = opts.priority || await select({
-        message: 'Priority:',
-        choices: [
-          { value: 'medium', name: 'Medium' },
-          { value: 'high', name: 'High' },
-          { value: 'critical', name: 'Critical' },
-          { value: 'low', name: 'Low' },
-        ],
-      });
+      const priority = opts.priority || 'medium';
+      if (!validPriorities.includes(priority)) {
+        error(`Priority must be one of: ${validPriorities.join(', ')}`);
+        return;
+      }
 
-      const dateStr = today();
-      const content = `---
-id: "${generateId('task')}"
-name: "${name}"
-description: "${description}"
-priority: "${priority}"
-status: "todo"
-created_at: "${dateStr}"
-updated_at: "${dateStr}"
-tags: []
-parent_task: null
----
+      const status = opts.status || 'todo';
+      if (!validStatuses.includes(status)) {
+        error(`Status must be one of: ${validStatuses.join(', ')}`);
+        return;
+      }
 
-## Changelog
-<!-- LIFO: newest entry at top -->
+      const description = opts.description || name;
+      const tags = opts.tags ? opts.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const why = opts.why || '';
 
-### ${dateStr} - Created
-- Task created.
-`;
+      const template = getTaskTemplate();
+      const content = template
+        .replaceAll('{{ID}}', generateId('task'))
+        .replaceAll('{{NAME}}', name)
+        .replaceAll('{{DESCRIPTION}}', description)
+        .replaceAll('{{PRIORITY}}', priority)
+        .replaceAll('{{STATUS}}', status)
+        .replaceAll('{{TAGS}}', JSON.stringify(tags))
+        .replaceAll('{{DATE}}', today())
+        .replaceAll('{{WHY}}', why || '(To be defined)');
 
       writeFileSync(filePath, content, 'utf-8');
       success(`Task created: ${slug}.md`);
+    });
+
+  // Insert into a section
+  tasks
+    .command('insert')
+    .argument('<name>')
+    .argument(
+      '<section>',
+      'Section: why, user_stories, acceptance_criteria, constraints, technical_details, notes, changelog',
+    )
+    .argument('[content...]', 'Content to insert')
+    .description('Insert content into a task section')
+    .action(async (name: string, section: string, contentParts: string[]) => {
+      const file = findTaskFile(name);
+      if (!file) {
+        error(`Task not found: ${name}`);
+        return;
+      }
+
+      const sectionMap: Record<string, string> = {
+        changelog: 'Changelog',
+        notes: 'Notes',
+        technical_details: 'Technical Details',
+        constraints: 'Constraints & Decisions',
+        user_stories: 'User Stories',
+        acceptance_criteria: 'Acceptance Criteria',
+        why: 'Why',
+      };
+
+      const sectionKey = section.toLowerCase();
+      if (!sectionMap[sectionKey]) {
+        error(`Unknown section: "${section}". Valid sections: ${Object.keys(sectionMap).join(', ')}`);
+        return;
+      }
+      const sectionName = sectionMap[sectionKey];
+
+      let content: string;
+      if (contentParts.length > 0) {
+        content = contentParts.join(' ');
+      } else {
+        content = await input({ message: `Content for ${sectionName}:` });
+      }
+
+      if (!content.trim()) {
+        error('No content provided.');
+        return;
+      }
+
+      // For changelog, auto-prepend date header
+      if (sectionKey === 'changelog') {
+        content = `### ${today()} - Update\n- ${content}`;
+      }
+
+      // For constraints, prepend with date
+      if (sectionKey === 'constraints') {
+        content = `- **[${today()}]** ${content}`;
+      }
+
+      const position =
+        ['changelog', 'constraints'].includes(sectionKey)
+          ? 'top'
+          : 'bottom';
+
+      try {
+        insertToSection(file, sectionName, content, position as 'top' | 'bottom', true);
+        updateFrontmatterFields(file, { updated_at: today() });
+        success(`Inserted into ${sectionName} in ${basename(file)}`);
+      } catch (err: any) {
+        error(err.message);
+      }
     });
 
   // Complete task

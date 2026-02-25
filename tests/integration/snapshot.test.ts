@@ -112,7 +112,7 @@ describe('snapshot (integration)', () => {
     expect(output).not.toContain('done-task');
   });
 
-  it('outputs recent changelog entries (max 5)', () => {
+  it('outputs recent changelog entries (max 3)', () => {
     const ctx = scaffold(tmpDir);
     const entries = Array.from({ length: 8 }, (_, i) => ({
       date: `2026-02-${String(24 - i).padStart(2, '0')}`,
@@ -124,8 +124,8 @@ describe('snapshot (integration)', () => {
     const output = runSnapshot(tmpDir);
     expect(output).toContain('## Recent Changelog');
     expect(output).toContain('Change 1');
-    expect(output).toContain('Change 5');
-    expect(output).not.toContain('Change 6');
+    expect(output).toContain('Change 3');
+    expect(output).not.toContain('Change 4');
   });
 
   it('outputs features summary with why, tasks, and changelog', () => {

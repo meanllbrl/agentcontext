@@ -29,7 +29,22 @@ function getActiveTaskLines(root: string): string[] {
       const name = basename(file, '.md');
       const priority = String(data.priority ?? '-');
       const updated = String(data.updated_at ?? data.created_at ?? '');
-      lines.push(`- ${name} (status: ${status}, priority: ${priority}, updated: ${updated})`);
+
+      let line = `- ${name} (status: ${status}, priority: ${priority}, updated: ${updated})`;
+
+      // Why (from ## Why section, first non-placeholder line)
+      try {
+        const whyContent = readSection(file, 'Why');
+        if (whyContent) {
+          const firstLine = whyContent.split('\n').find(l => l.trim() && !l.trim().startsWith('('))?.trim();
+          if (firstLine) {
+            const capped = firstLine.length > 100 ? firstLine.slice(0, 97) + '...' : firstLine;
+            line += `\n  Why: ${capped}`;
+          }
+        }
+      } catch { /* skip */ }
+
+      lines.push(line);
     } catch {
       // skip unreadable files
     }
@@ -102,13 +117,16 @@ export function generateSnapshot(): string {
 
   // 6. Sleep State
   const sleepState = readSleepState(root);
-  if (sleepState.debt > 0 || sleepState.last_sleep || sleepState.sessions.length > 0) {
+  if (sleepState.debt > 0 || sleepState.last_sleep || sleepState.sessions.length > 0 || sleepState.sleep_started_at) {
     const level = sleepState.debt <= 3 ? 'Alert'
       : sleepState.debt <= 6 ? 'Drowsy'
       : sleepState.debt <= 9 ? 'Sleepy'
       : 'Must Sleep';
     parts.push('## Sleep State\n');
     parts.push(`- Debt: ${sleepState.debt} (${level})`);
+    if (sleepState.sleep_started_at) {
+      parts.push(`- Consolidation in progress (started: ${sleepState.sleep_started_at})`);
+    }
     if (sleepState.last_sleep) {
       parts.push(`- Last sleep: ${sleepState.last_sleep}`);
     }
@@ -141,7 +159,7 @@ export function generateSnapshot(): string {
   if (existsSync(changelogPath)) {
     try {
       const entries = readJsonArray<Record<string, unknown>>(changelogPath);
-      const recent = entries.slice(0, 5);
+      const recent = entries.slice(0, 3);
       if (recent.length > 0) {
         parts.push('## Recent Changelog\n');
         for (const e of recent) {
@@ -150,6 +168,31 @@ export function generateSnapshot(): string {
           const scope = String(e.scope ?? '');
           const desc = String(e.description ?? '');
           parts.push(`- ${date} [${type}] ${scope}: ${desc}`);
+        }
+        parts.push('');
+      }
+    } catch {
+      // skip if malformed
+    }
+  }
+
+  // 7.5. Latest Release
+  const releasesPath = join(root, 'core', 'RELEASES.json');
+  if (existsSync(releasesPath)) {
+    try {
+      const releases = readJsonArray<Record<string, unknown>>(releasesPath);
+      if (releases.length > 0) {
+        const latest = releases[0];
+        const ver = String(latest.version ?? '');
+        const relDate = String(latest.date ?? '');
+        const sum = String(latest.summary ?? '');
+        const taskCount = Array.isArray(latest.tasks) ? latest.tasks.length : 0;
+        const featCount = Array.isArray(latest.features) ? latest.features.length : 0;
+        const brk = latest.breaking ? ' (BREAKING)' : '';
+        parts.push('## Latest Release\n');
+        parts.push(`- ${ver} (${relDate})${brk}: ${sum}`);
+        if (taskCount > 0 || featCount > 0) {
+          parts.push(`  Includes: ${taskCount} task(s), ${featCount} feature(s)`);
         }
         parts.push('');
       }
@@ -298,17 +341,34 @@ export function generateSubagentBriefing(): string {
     }
   }
 
-  // 2. What agentcontext is and how the directory is structured
-  parts.push('## What is _agent_context/?\n');
-  parts.push('This project uses agentcontext, a structured context system. The `_agent_context/` directory');
-  parts.push('contains pre-researched knowledge, project decisions, and active task state. Before exploring');
-  parts.push('the codebase with grep/glob, check if the answer already exists here.\n');
-  parts.push('Key directories:');
-  parts.push('- `_agent_context/core/` -- Project identity, preferences, memory, tech stack, data structures');
-  parts.push('- `_agent_context/knowledge/` -- Research documents on specific topics (indexed below)');
-  parts.push('- `_agent_context/state/` -- Active task files with progress logs\n');
+  // 2. Context system structure (teaches sub-agents what each file/directory is)
+  parts.push('## Context System Structure\n');
+  parts.push('This project uses agentcontext for structured, persistent context across sessions.');
+  parts.push('**Always check context files before exploring the codebase.**\n');
+  parts.push('`_agent_context/core/` -- Core project files:');
+  parts.push('- `0.soul.md` -- Project identity, principles, constraints, agent rules');
+  parts.push('- `1.user.md` -- User preferences, project details, workflow rules');
+  parts.push('- `2.memory.md` -- Technical decisions, known issues, session history');
+  parts.push('- Extended files (3+): tech stack, data structures, style guide, etc. (indexed below)');
+  parts.push('- `features/` -- Feature PRDs with user stories, acceptance criteria, constraints, changelog\n');
+  parts.push('`_agent_context/knowledge/` -- Deep research documents on specific topics (indexed below)');
+  parts.push('`_agent_context/state/` -- Active task files with progress logs\n');
 
-  // 3. Active tasks
+  // 3. Extended Core Files index (files 3+, not loaded in full)
+  const coreExtras = buildCoreIndex(root);
+  if (coreExtras.length > 0) {
+    parts.push('## Extended Core Files\n');
+    for (const entry of coreExtras) {
+      let line = `- **${entry.name}** (${entry.path})`;
+      if (entry.summary) {
+        line += `: ${entry.summary}`;
+      }
+      parts.push(line);
+    }
+    parts.push('');
+  }
+
+  // 4. Active tasks
   const activeTasks = getActiveTaskLines(root);
   if (activeTasks.length > 0) {
     parts.push('## Active Tasks\n');
@@ -316,7 +376,56 @@ export function generateSubagentBriefing(): string {
     parts.push('');
   }
 
-  // 4. Knowledge Index + Pinned Knowledge
+  // 5. Features summary (name, status, why, related tasks)
+  const featuresDir = join(root, 'core', 'features');
+  if (existsSync(featuresDir)) {
+    const featureFiles = fg.sync('*.md', { cwd: featuresDir, absolute: true });
+    const features: string[] = [];
+
+    for (const file of featureFiles) {
+      try {
+        const { data } = readFrontmatter(file);
+        const name = basename(file, '.md');
+        const status = String(data.status ?? 'unknown');
+        const tags = Array.isArray(data.tags) ? data.tags.join(', ') : '';
+
+        let why = '';
+        try {
+          const whyContent = readSection(file, 'Why');
+          if (whyContent) {
+            const firstLine = whyContent.split('\n').find(l => l.trim() && !l.trim().startsWith('('))?.trim();
+            if (firstLine) {
+              why = firstLine.length > 120 ? firstLine.slice(0, 117) + '...' : firstLine;
+            }
+          }
+        } catch { /* skip */ }
+
+        const relatedTasks = Array.isArray(data.related_tasks) && data.related_tasks.length > 0
+          ? data.related_tasks.join(', ')
+          : '';
+
+        let featureLine = `- **${name}** (status: ${status}${tags ? `, tags: ${tags}` : ''})`;
+        const details: string[] = [];
+        if (why) details.push(`  Why: ${why}`);
+        if (relatedTasks) details.push(`  Tasks: ${relatedTasks}`);
+
+        if (details.length > 0) {
+          featureLine += '\n' + details.join('\n');
+        }
+        features.push(featureLine);
+      } catch {
+        // skip unreadable files
+      }
+    }
+
+    if (features.length > 0) {
+      parts.push('## Features\n');
+      parts.push(features.join('\n'));
+      parts.push('');
+    }
+  }
+
+  // 6. Knowledge Index + Pinned Knowledge
   const knowledgeEntries = buildKnowledgeIndex(root);
   if (knowledgeEntries.length > 0) {
     const indexLines: string[] = [];
@@ -344,14 +453,16 @@ export function generateSubagentBriefing(): string {
     }
   }
 
-  // 5. Instructions
+  // 7. Instructions (feature PRDs first, then knowledge, then core, then tasks)
   parts.push('## How to Use This Context\n');
-  parts.push('1. **Check knowledge first.** Before searching the codebase, scan the Knowledge Index above.');
-  parts.push('   If a topic matches your task, read `_agent_context/knowledge/<slug>.md` for existing research.');
-  parts.push('2. **Check core files for architecture.** `_agent_context/core/4.tech_stack.md` has the tech stack,');
-  parts.push('   `_agent_context/core/5.data_structures.sql` has the schema. Read these before exploring source.');
-  parts.push('3. **Check active tasks for context.** Tasks above show current work. Read the task file at');
-  parts.push('   `_agent_context/state/<task>.md` if your work relates to an active task.');
+  parts.push('1. **Check feature PRDs first.** If your task relates to a feature listed above, read');
+  parts.push('   `_agent_context/core/features/<feature>.md` for user stories, acceptance criteria, and constraints.');
+  parts.push('2. **Check knowledge files.** Scan the Knowledge Index above. If a topic matches your task,');
+  parts.push('   read `_agent_context/knowledge/<slug>.md` for existing research.');
+  parts.push('3. **Check core files for architecture.** Extended core files above have the tech stack,');
+  parts.push('   data structures, and style guide. Read these before exploring source code.');
+  parts.push('4. **Check active tasks for context.** Read `_agent_context/state/<task>.md` if your work');
+  parts.push('   relates to an active task.');
   parts.push('');
 
   return parts.join('\n').trim();

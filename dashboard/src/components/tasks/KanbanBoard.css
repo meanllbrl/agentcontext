@@ -1,0 +1,22 @@
+.kanban-board {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.kanban-columns {
+  display: flex;
+  gap: var(--space-4);
+  flex: 1;
+  overflow-x: auto;
+  padding-bottom: var(--space-4);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}

@@ -14,8 +14,11 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
+    "build:dashboard": "cd dashboard && npm run build",
+    "build:cli": "tsup",
+    "build": "npm run build:dashboard && npm run build:cli",
     "dev": "tsup --watch",
+    "dev:dashboard": "cd dashboard && npm run dev",
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },
