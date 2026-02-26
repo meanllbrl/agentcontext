@@ -177,6 +177,28 @@
   background: var(--color-bg-secondary);
 }
 
+/* Expandable JSONB parent rows */
+.entity-field--expandable {
+  cursor: pointer;
+}
+
+.entity-field--expandable:hover {
+  background: hsl(278 72% 38% / 0.06);
+}
+
+/* Nested sub-fields */
+.entity-field--nested {
+  padding-left: calc(var(--space-4) + 18px + var(--space-2));
+  opacity: 0.85;
+  border-left: 2px solid hsl(278 72% 38% / 0.15);
+  margin-left: var(--space-4);
+}
+
+.entity-field-name--nested {
+  color: var(--color-text-secondary) !important;
+  font-weight: var(--font-weight-normal) !important;
+}
+
 .entity-field-icon {
   width: 18px;
   flex-shrink: 0;
@@ -217,6 +239,14 @@
   color: hsl(142 71% 40%);
 }
 
+.entity-field-type[data-type="number"] {
+  color: hsl(25 85% 55%);
+}
+
+.entity-field-type[data-type="json"] {
+  color: hsl(278 72% 55%);
+}
+
 .entity-field-type[data-type="nullable"] {
   color: var(--color-text-tertiary);
   font-style: italic;
@@ -224,6 +254,36 @@
 
 .entity-field-type[data-type="date"] {
   color: hsl(262 60% 55%);
+}
+
+/* ─── JSONB Toggle ─── */
+.entity-field-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.entity-field-toggle-arrow {
+  font-size: 8px;
+  color: var(--color-text-tertiary);
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+
+.entity-field-toggle-arrow--open {
+  transform: rotate(90deg);
+}
+
+.entity-field-toggle-count {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  background: hsl(278 72% 38% / 0.1);
+  padding: 0 5px;
+  border-radius: 3px;
+  line-height: 1.6;
 }
 
 /* ─── Enum Pills ─── */

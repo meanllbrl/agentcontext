@@ -1,5 +1,5 @@
-import { useMemo, useEffect, useRef, useState, useCallback } from 'react';
-import { parseSqlContent, type SchemaEntity, type SchemaRelation, type ParsedSchema } from '../../lib/sql-parser';
+import { useMemo, useEffect, useRef, useState, useCallback, Fragment } from 'react';
+import { parseSqlContent, type SchemaEntity, type SchemaField, type SchemaRelation, type ParsedSchema } from '../../lib/sql-parser';
 import './SqlPreview.css';
 
 interface PathData {
@@ -15,15 +15,17 @@ function entityId(name: string): string {
 
 function typeCategory(type: string): string {
   if (type === 'enum') return 'enum';
-  if (type === 'array' || type.endsWith('[]')) return 'array';
+  if (type === 'array' || type.endsWith('[]') || type.startsWith('array')) return 'array';
   if (type === 'boolean') return 'boolean';
   if (type === 'nullable') return 'nullable';
-  if (type === 'date') return 'date';
+  if (type === 'date' || type === 'timestamp') return 'date';
+  if (type === 'int' || type === 'integer' || type === 'numeric' || type === 'serial' || type === 'bigint' || type === 'smallint' || type === 'real' || type === 'float' || type === 'double') return 'number';
+  if (type === 'jsonb' || type === 'json') return 'json';
   return 'string';
 }
 
 function fieldIcon(
-  field: { isPrimary?: boolean; name: string },
+  field: SchemaField,
   relations: SchemaRelation[],
   entityName: string,
 ): { icon: string; cls: string } | null {
@@ -98,7 +100,31 @@ function computePath(
 // ── Entity Card ──
 
 function EntityCard({ entity, relations }: { entity: SchemaEntity; relations: SchemaRelation[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const categoryIcon = entity.storageType === 'json' ? '{ }' : entity.storageType === 'table' ? 'SQL' : '\u2630';
+
+  // Separate top-level and nested fields
+  const topLevel = entity.fields.filter(f => !f.isNested);
+  const nestedByParent = useMemo(() => {
+    const map = new Map<string, SchemaField[]>();
+    for (const f of entity.fields) {
+      if (f.isNested && f.parentField) {
+        const list = map.get(f.parentField) || [];
+        list.push(f);
+        map.set(f.parentField, list);
+      }
+    }
+    return map;
+  }, [entity.fields]);
+
+  const toggle = (parent: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(parent)) next.delete(parent);
+      else next.add(parent);
+      return next;
+    });
+  };
 
   return (
     <div className="entity-card" data-entity={entityId(entity.name)}>
@@ -120,30 +146,62 @@ function EntityCard({ entity, relations }: { entity: SchemaEntity; relations: Sc
       )}
 
       <div className="entity-fields">
-        {entity.fields.map(field => {
+        {topLevel.map(field => {
           const icon = fieldIcon(field, relations, entity.name);
           const cat = typeCategory(field.type);
+          const nested = nestedByParent.get(field.name);
+          const isExpanded = expanded.has(field.name);
+
           return (
-            <div key={field.name} className="entity-field">
-              <span className={`entity-field-icon ${icon?.cls ?? ''}`}>
-                {icon?.icon ?? ''}
-              </span>
-              <span className="entity-field-name">{field.name}</span>
-              {field.type === 'enum' && field.enumValues ? (
-                <span className="entity-field-enum-group">
-                  {field.enumValues.map(v => (
-                    <span key={v} className="entity-field-enum-pill">{v}</span>
-                  ))}
+            <Fragment key={field.name}>
+              <div
+                className={`entity-field${nested ? ' entity-field--expandable' : ''}`}
+                onClick={nested ? () => toggle(field.name) : undefined}
+              >
+                <span className={`entity-field-icon ${icon?.cls ?? ''}`}>
+                  {icon?.icon ?? ''}
                 </span>
-              ) : (
-                <span className="entity-field-type" data-type={cat}>{field.type}</span>
-              )}
-              {field.description && (
-                <span className="entity-field-desc" title={field.description}>
-                  {field.description}
-                </span>
-              )}
-            </div>
+                <span className="entity-field-name">{field.name}</span>
+                {field.type === 'enum' && field.enumValues ? (
+                  <span className="entity-field-enum-group">
+                    {field.enumValues.map(v => (
+                      <span key={v} className="entity-field-enum-pill">{v}</span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="entity-field-type" data-type={cat}>{field.type}</span>
+                )}
+                {nested && (
+                  <span className="entity-field-toggle">
+                    <span className={`entity-field-toggle-arrow${isExpanded ? ' entity-field-toggle-arrow--open' : ''}`}>
+                      &#9654;
+                    </span>
+                    <span className="entity-field-toggle-count">{nested.length}</span>
+                  </span>
+                )}
+                {!nested && field.description && (
+                  <span className="entity-field-desc" title={field.description}>
+                    {field.description}
+                  </span>
+                )}
+              </div>
+              {nested && isExpanded && nested.map(nf => {
+                const nCat = typeCategory(nf.type);
+                const displayName = nf.name.slice((nf.parentField?.length ?? 0) + 1);
+                return (
+                  <div key={nf.name} className="entity-field entity-field--nested">
+                    <span className="entity-field-icon" />
+                    <span className="entity-field-name entity-field-name--nested">.{displayName}</span>
+                    <span className="entity-field-type" data-type={nCat}>{nf.type}</span>
+                    {nf.description && (
+                      <span className="entity-field-desc" title={nf.description}>
+                        {nf.description}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </Fragment>
           );
         })}
       </div>

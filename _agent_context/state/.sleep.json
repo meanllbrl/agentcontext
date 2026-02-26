@@ -1,33 +1,8 @@
 {
-  "debt": 6,
+  "debt": 0,
   "last_sleep": "2026-02-26",
-  "last_sleep_summary": "Consolidated enhanced Kanban task filters session: status filter, text search, date range, localStorage persistence via usePersistedState. Updated CHANGELOG.json, web-dashboard task log, memory, and web-dashboard feature PRD.",
+  "last_sleep_summary": "Consolidated SQL parser rewrite (line-by-line parsing, REFERENCES FK, JSONB sub-fields), SqlPreview collapsible JSONB groups, and SubagentStart briefing restructure (directive at top, features with Read paths). 325 tests passing.",
   "sleep_started_at": null,
-  "sessions": [
-    {
-      "session_id": "20f97833-efe3-461d-890e-7ce1978227e7",
-      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/20f97833-efe3-461d-890e-7ce1978227e7.jsonl",
-      "stopped_at": "2026-02-26T11:28:50.186Z",
-      "last_assistant_message": "Release `0.1.0` created with 1 task, 7 features, and all 24 changelog entries. Features have been back-populated with `released_version=\"0.1.0\"`.",
-      "change_count": 0,
-      "score": 0
-    },
-    {
-      "session_id": "56e53a09-9dd8-44b9-a778-77efc09b65ad",
-      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/56e53a09-9dd8-44b9-a778-77efc09b65ad.jsonl",
-      "stopped_at": "2026-02-26T00:05:37.630Z",
-      "last_assistant_message": "Yes, both are covered identically. The epoch-based filtering at `src/cli/commands/sleep.ts:223-236` applies the same `> epoch` comparison to both arrays:\n\n- **Sessions**: `state.sessions.filter(s => s.stopped_at > epoch)`\n- **Dashboard changes**: `state.dashboard_changes.filter(c => c.timestamp > epoch)`\n\nEvery dashboard change gets a mandatory `timestamp` when recorded in `change-tracker.ts:110`. So if another session logs a dashboard change while rem-sleep is running, it will have a post-epoch timestamp and survive the `sleep done` clearing.\n\nThe backward-compat path (when `sleep_started_at` is `null`) clears both arrays entirely, which is the expected fallback.\n\nIntegration tests at `tests/integration/sleep.test.ts:225-247` explicitly verify that post-epoch dashboard changes are preserved. No gap here.",
-      "change_count": 22,
-      "score": 3
-    },
-    {
-      "session_id": "bcb7971e-eeff-402d-bda6-7f1c4994bc0b",
-      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/bcb7971e-eeff-402d-bda6-7f1c4994bc0b.jsonl",
-      "stopped_at": "2026-02-26T00:14:29.000Z",
-      "last_assistant_message": "All 325 tests passing, build clean. Here's what was built:\n\n**Notion-style filter bar with popovers:**\n- **Search** - always-visible input with clear button\n- **Status** chip - popover with color dots and checkmarks for each status\n- **Priority** chip - popover with color dots for Critical/High/Medium/Low\n- **Date** chip - opens a full mini calendar with:\n  - Updated/Created toggle\n  - 7 quick presets: Today, Yesterday, This Week, Last 7 Days, This Month, Last 30 Days, This Year\n  - Interactive month calendar with range selection (click start, click end)\n  - Range highlighting with branded colors\n  - Today indicator dot\n  - Clear button and selected range display\n- **Tag** input - inline with clear button\n- **Sort** chip - popover with Last Updated, Date Created, Priority, Name\n- **Group** chip - popover with Status, Priority, No Grouping\n- **Clear** button - shows active filter count, resets filters but preserves sort/group\n\n**Saved Views (presets):**\n- Save current filter state with a name\n- Load any saved view instantly\n- Delete views with X button\n- Badge shows saved view count\n- All stored in localStorage\n\n**Persistence:** All filter state and presets persist in localStorage across sessions.\n\n**New files:** `FilterPopover.tsx/css`, `MiniCalendar.tsx/css`\n**Rewritten:** `TaskFilters.tsx/css`, `KanbanBoard.tsx`",
-      "change_count": 11,
-      "score": 3
-    }
-  ],
+  "sessions": [],
   "dashboard_changes": []
 }

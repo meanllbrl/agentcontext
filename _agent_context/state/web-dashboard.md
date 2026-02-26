@@ -21,6 +21,9 @@ parent_task: null
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+
+### 2026-02-26 - Session Update
+- SQL parser rewrite (line-by-line parsing, REFERENCES FK detection, JSONB sub-field parsing, isSqlType validation). SqlPreview collapsible JSONB groups with toggle arrows and count badges. SubagentStart briefing restructured: directive at top, features section promoted with direct Read paths, compact context directory reference. 3 integration tests updated. 325 tests passing.
 ### 2026-02-26 - Enhanced Task Filters + localStorage Persistence
 - Added status filter dropdown to Kanban filters
 - Added text search input (searches task name + description)

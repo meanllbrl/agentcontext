@@ -320,7 +320,13 @@ export function generateSubagentBriefing(): string {
 
   const parts: string[] = ['# Agent Context -- Sub-agent Briefing\n'];
 
-  // 1. Project summary (first meaningful line from soul file content)
+  // 1. Top-priority directive (MUST be first thing the sub-agent reads)
+  parts.push('IMPORTANT: This project has documented context. BEFORE searching or exploring code,');
+  parts.push('read the relevant `_agent_context/` files listed below. Feature PRDs, knowledge docs,');
+  parts.push('and core files already contain architectural decisions, integration details, and design');
+  parts.push('rationale. Searching the codebase without checking context first wastes time.\n');
+
+  // 2. Project summary (first meaningful line from soul file content)
   const soulPath = join(root, 'core', '0.soul.md');
   if (existsSync(soulPath)) {
     const { data, content } = readFrontmatter(soulPath);
@@ -341,42 +347,8 @@ export function generateSubagentBriefing(): string {
     }
   }
 
-  // 2. Context system structure (teaches sub-agents what each file/directory is)
-  parts.push('## Context System Structure\n');
-  parts.push('This project uses agentcontext for structured, persistent context across sessions.');
-  parts.push('**Always check context files before exploring the codebase.**\n');
-  parts.push('`_agent_context/core/` -- Core project files:');
-  parts.push('- `0.soul.md` -- Project identity, principles, constraints, agent rules');
-  parts.push('- `1.user.md` -- User preferences, project details, workflow rules');
-  parts.push('- `2.memory.md` -- Technical decisions, known issues, session history');
-  parts.push('- Extended files (3+): tech stack, data structures, style guide, etc. (indexed below)');
-  parts.push('- `features/` -- Feature PRDs with user stories, acceptance criteria, constraints, changelog\n');
-  parts.push('`_agent_context/knowledge/` -- Deep research documents on specific topics (indexed below)');
-  parts.push('`_agent_context/state/` -- Active task files with progress logs\n');
-
-  // 3. Extended Core Files index (files 3+, not loaded in full)
-  const coreExtras = buildCoreIndex(root);
-  if (coreExtras.length > 0) {
-    parts.push('## Extended Core Files\n');
-    for (const entry of coreExtras) {
-      let line = `- **${entry.name}** (${entry.path})`;
-      if (entry.summary) {
-        line += `: ${entry.summary}`;
-      }
-      parts.push(line);
-    }
-    parts.push('');
-  }
-
-  // 4. Active tasks
-  const activeTasks = getActiveTaskLines(root);
-  if (activeTasks.length > 0) {
-    parts.push('## Active Tasks\n');
-    parts.push(activeTasks.join('\n'));
-    parts.push('');
-  }
-
-  // 5. Features summary (name, status, why, related tasks)
+  // 3. Features summary (name, status, tags, why, related tasks)
+  // Features come FIRST because they're the most actionable context for sub-agents.
   const featuresDir = join(root, 'core', 'features');
   if (existsSync(featuresDir)) {
     const featureFiles = fg.sync('*.md', { cwd: featuresDir, absolute: true });
@@ -405,6 +377,7 @@ export function generateSubagentBriefing(): string {
           : '';
 
         let featureLine = `- **${name}** (status: ${status}${tags ? `, tags: ${tags}` : ''})`;
+        featureLine += ` --> Read: _agent_context/core/features/${name}.md`;
         const details: string[] = [];
         if (why) details.push(`  Why: ${why}`);
         if (relatedTasks) details.push(`  Tasks: ${relatedTasks}`);
@@ -419,13 +392,13 @@ export function generateSubagentBriefing(): string {
     }
 
     if (features.length > 0) {
-      parts.push('## Features\n');
+      parts.push('## Features (read these BEFORE searching code)\n');
       parts.push(features.join('\n'));
       parts.push('');
     }
   }
 
-  // 6. Knowledge Index + Pinned Knowledge
+  // 4. Knowledge Index + Pinned Knowledge
   const knowledgeEntries = buildKnowledgeIndex(root);
   if (knowledgeEntries.length > 0) {
     const indexLines: string[] = [];
@@ -453,16 +426,33 @@ export function generateSubagentBriefing(): string {
     }
   }
 
-  // 7. Instructions (feature PRDs first, then knowledge, then core, then tasks)
-  parts.push('## How to Use This Context\n');
-  parts.push('1. **Check feature PRDs first.** If your task relates to a feature listed above, read');
-  parts.push('   `_agent_context/core/features/<feature>.md` for user stories, acceptance criteria, and constraints.');
-  parts.push('2. **Check knowledge files.** Scan the Knowledge Index above. If a topic matches your task,');
-  parts.push('   read `_agent_context/knowledge/<slug>.md` for existing research.');
-  parts.push('3. **Check core files for architecture.** Extended core files above have the tech stack,');
-  parts.push('   data structures, and style guide. Read these before exploring source code.');
-  parts.push('4. **Check active tasks for context.** Read `_agent_context/state/<task>.md` if your work');
-  parts.push('   relates to an active task.');
+  // 5. Extended Core Files index (files 3+, not loaded in full)
+  const coreExtras = buildCoreIndex(root);
+  if (coreExtras.length > 0) {
+    parts.push('## Extended Core Files\n');
+    for (const entry of coreExtras) {
+      let line = `- **${entry.name}** (${entry.path})`;
+      if (entry.summary) {
+        line += `: ${entry.summary}`;
+      }
+      parts.push(line);
+    }
+    parts.push('');
+  }
+
+  // 6. Active tasks
+  const activeTasks = getActiveTaskLines(root);
+  if (activeTasks.length > 0) {
+    parts.push('## Active Tasks\n');
+    parts.push(activeTasks.join('\n'));
+    parts.push('');
+  }
+
+  // 7. Context directory reference
+  parts.push('## Context Directory\n');
+  parts.push('`_agent_context/core/` -- Core files: soul (0), user (1), memory (2), extended (3+), features/');
+  parts.push('`_agent_context/knowledge/` -- Deep research documents on specific topics');
+  parts.push('`_agent_context/state/` -- Active task files with progress logs');
   parts.push('');
 
   return parts.join('\n').trim();

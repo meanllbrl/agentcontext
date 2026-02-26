@@ -4,6 +4,8 @@ export interface SchemaField {
   enumValues?: string[];
   description?: string;
   isPrimary?: boolean;
+  isNested?: boolean;
+  parentField?: string;
 }
 
 export interface SchemaEntity {
@@ -28,53 +30,214 @@ export interface ParsedSchema {
   relations: SchemaRelation[];
 }
 
+const SQL_TYPES = new Set([
+  'text', 'int', 'integer', 'numeric', 'boolean', 'timestamp',
+  'jsonb', 'json', 'serial', 'bigint', 'smallint', 'real',
+  'double', 'float', 'date', 'time', 'uuid', 'bytea', 'blob',
+  'varchar', 'char', 'array',
+]);
+
+function isSqlType(raw: string): boolean {
+  const base = raw.replace(/\(.*\)/, '').replace(/\[.*\]/, '').toLowerCase();
+  return SQL_TYPES.has(base);
+}
+
 /**
  * Parse SQL content into schema representation.
- * Handles standard CREATE TABLE and comment-based schema docs.
+ * Handles standard CREATE TABLE with inline comments for JSONB sub-fields,
+ * plus standalone comment-based schema docs.
  */
 export function parseSqlContent(content: string): ParsedSchema {
-  const createEntities = parseCreateTables(content);
+  const { entities: sqlEntities, relations: sqlRelations } = parseCreateTables(content);
   const commentEntities = parseCommentSchemas(content);
 
-  const seen = new Set(createEntities.map(e => e.name.toLowerCase()));
+  const seen = new Set(sqlEntities.map(e => e.name.toLowerCase()));
   const entities = [
-    ...createEntities,
+    ...sqlEntities,
     ...commentEntities.filter(e => !seen.has(e.name.toLowerCase())),
   ];
 
-  const relations = extractRelations(entities);
+  const heuristicRelations = extractRelations(entities);
+  const relKey = (r: SchemaRelation) => `${r.from}.${r.fromField}->${r.to}.${r.toField}`;
+  const sqlRelKeys = new Set(sqlRelations.map(relKey));
+  const relations = [
+    ...sqlRelations,
+    ...heuristicRelations.filter(r => !sqlRelKeys.has(relKey(r))),
+  ];
+
   return { entities, relations };
 }
 
-// ── Standard SQL CREATE TABLE ──
+// ── SQL CREATE TABLE (line-by-line) ──
 
-function parseCreateTables(content: string): SchemaEntity[] {
+function parseCreateTables(content: string): { entities: SchemaEntity[]; relations: SchemaRelation[] } {
   const entities: SchemaEntity[] = [];
-  const regex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?(\w+)[`"']?\s*\(([\s\S]*?)\);/gi;
+  const relations: SchemaRelation[] = [];
+  const lines = content.split('\n');
 
-  let match;
-  while ((match = regex.exec(content)) !== null) {
-    const name = match[1];
-    const body = match[2];
-    const fields: SchemaField[] = [];
+  let currentName: string | null = null;
+  let currentFields: SchemaField[] = [];
+  let currentPath: string | undefined;
+  let inBody = false;
+  let lastTopParent: string | null = null;
 
-    for (const line of body.split(',').map(l => l.trim()).filter(Boolean)) {
-      if (/^(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT|INDEX)/i.test(line)) continue;
-      const colMatch = line.match(/^[`"']?(\w+)[`"']?\s+(\w+(?:\([^)]*\))?)\s*(.*)/i);
-      if (colMatch) {
-        fields.push({
-          name: colMatch[1],
-          type: colMatch[2].toLowerCase(),
-          isPrimary: /PRIMARY\s+KEY/i.test(colMatch[3]),
-        });
-      }
+  function flush() {
+    if (currentName && currentFields.length > 0) {
+      entities.push({ name: currentName, path: currentPath, fields: currentFields, storageType: 'table', notes: [] });
     }
-    entities.push({ name, fields, storageType: 'table', notes: [] });
+    currentName = null;
+    currentPath = undefined;
+    currentFields = [];
+    inBody = false;
+    lastTopParent = null;
   }
-  return entities;
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // Extract Firestore path from section header: "-- N. NAME -- /collection/{id}"
+    if (/^\s*--\s*\d+\.\s+\w+/.test(raw)) {
+      const pathMatch = raw.match(/\/\w+\/\{[^}]+\}/);
+      if (pathMatch) currentPath = pathMatch[0];
+      continue;
+    }
+
+    // CREATE TABLE start
+    const createMatch = trimmed.match(/^CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"']?(\w+)[`"']?\s*\(/i);
+    if (createMatch) {
+      flush();
+      currentName = createMatch[1];
+      currentFields = [];
+      inBody = true;
+      continue;
+    }
+
+    if (!inBody || !currentName) continue;
+
+    // End of CREATE TABLE
+    if (/^\s*\)\s*;/.test(raw)) {
+      flush();
+      continue;
+    }
+
+    // Comment lines inside CREATE TABLE body
+    if (/^\s*--/.test(raw)) {
+      const commentText = raw.replace(/^\s*--\s?/, '');
+      const ct = commentText.trim();
+
+      // Skip decorative separators, empty comments
+      if (!ct || /^[═─=\-*]{3,}/.test(ct)) continue;
+      // Skip prose comments (lines starting with uppercase words that aren't field patterns)
+      // but DO parse field patterns
+
+      // Sub-sub-field with leading dot: ".notifications.payment BOOLEAN -- Default: true"
+      // These belong to the last seen top-level parent
+      if (ct.startsWith('.')) {
+        const dotMatch = ct.match(/^\.(\w+(?:\.\w+)*)\s+(\w+(?:(?:\([^)]*\))|(?:\[[\w,\s]*\]))?)\s*(.*)/i);
+        if (dotMatch && isSqlType(dotMatch[2]) && lastTopParent) {
+          const subPath = dotMatch[1];
+          const fieldType = dotMatch[2].toLowerCase();
+          const rest = dotMatch[3] || '';
+          const descMatch = rest.match(/--\s*(.+)$/);
+          const description = descMatch ? descMatch[1].trim() : undefined;
+          currentFields.push({
+            name: `${lastTopParent}.${subPath}`,
+            type: fieldType,
+            description,
+            isNested: true,
+            parentField: lastTopParent,
+          });
+        }
+        continue;
+      }
+
+      // Standard nested field: "parent.field TYPE" or "parent[].field TYPE"
+      const sfMatch = ct.match(
+        /^(\w+(?:\[\])?)\.(\w+(?:\.\w+)*)\s+(\w+(?:(?:\([^)]*\))|(?:\[[\w,\s]*\]))?)\s*(.*)/i
+      );
+      if (sfMatch && isSqlType(sfMatch[3])) {
+        const parentField = sfMatch[1].replace(/\[\]$/, '');
+        const subPath = sfMatch[2];
+        const fieldType = sfMatch[3].toLowerCase();
+        const rest = sfMatch[4] || '';
+        const descMatch = rest.match(/--\s*(.+)$/);
+        const description = descMatch ? descMatch[1].trim() : undefined;
+
+        lastTopParent = parentField;
+        currentFields.push({
+          name: `${parentField}.${subPath}`,
+          type: fieldType,
+          description,
+          isNested: true,
+          parentField,
+        });
+        continue;
+      }
+
+      // Not a field pattern, skip
+      continue;
+    }
+
+    // Skip empty lines
+    if (!trimmed) continue;
+
+    // Strip inline comment for column parsing
+    const codePart = trimmed.replace(/--.*$/, '').trim();
+    const cleaned = codePart.replace(/,\s*$/, '').trim();
+
+    // Skip constraint lines
+    if (/^(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT|INDEX)\b/i.test(cleaned)) continue;
+
+    // Column definition: name TYPE [constraints...]
+    const colMatch = cleaned.match(
+      /^[`"']?(\w+)[`"']?\s+(\w+(?:(?:\([^)]*\))|(?:\[[\w,\s]*\]))?)\s*(.*)/i
+    );
+    if (!colMatch) continue;
+
+    const fieldName = colMatch[1];
+    const rawType = colMatch[2];
+    const rest = colMatch[3] || '';
+
+    if (!isSqlType(rawType)) continue;
+
+    const fieldType = rawType.toLowerCase();
+    const isPrimary = /PRIMARY\s+KEY/i.test(rest);
+
+    // Extract REFERENCES for FK relationships
+    const refMatch = rest.match(/REFERENCES\s+[`"']?(\w+)[`"']?\s*\(\s*[`"']?(\w+)[`"']?\s*\)/i);
+    if (refMatch) {
+      relations.push({
+        from: currentName,
+        fromField: fieldName,
+        to: refMatch[1],
+        toField: refMatch[2],
+        cardinality: '1:1',
+      });
+    }
+
+    // Inline comment as description
+    const inlineDesc = raw.match(/--\s*(.+)$/);
+    const description = inlineDesc ? inlineDesc[1].trim() : undefined;
+
+    // Track parent for JSONB fields (upcoming nested comments reference this)
+    if (fieldType === 'jsonb' || fieldType === 'json') {
+      lastTopParent = fieldName;
+    }
+
+    currentFields.push({
+      name: fieldName,
+      type: fieldType,
+      isPrimary,
+      description,
+    });
+  }
+
+  flush();
+  return { entities, relations };
 }
 
-// ── Comment-based schema parser ──
+// ── Comment-based schema parser (for non-SQL schema docs) ──
 
 function parseCommentSchemas(content: string): SchemaEntity[] {
   const entities: SchemaEntity[] = [];
@@ -183,7 +346,7 @@ function parseCommentSchemas(content: string): SchemaEntity[] {
   return entities;
 }
 
-// ── Type inference ──
+// ── Type inference (for comment-based schemas) ──
 
 function inferType(value: string, description?: string): { type: string; enumValues?: string[] } {
   if (value.includes('|')) {
@@ -199,14 +362,15 @@ function inferType(value: string, description?: string): { type: string; enumVal
   return { type: 'string' };
 }
 
-// ── Relationship extraction ──
+// ── Heuristic relationship extraction (supplements REFERENCES) ──
 
 function extractRelations(entities: SchemaEntity[]): SchemaRelation[] {
   const relations: SchemaRelation[] = [];
-  const entityNames = entities.map(e => e.name.toLowerCase());
 
   for (const entity of entities) {
     for (const field of entity.fields) {
+      if (field.isNested) continue;
+
       // Description mentions "task IDs"
       if (field.description) {
         const refMatch = field.description.match(/(task|feature|knowledge)\s+IDs?/i);
@@ -214,11 +378,12 @@ function extractRelations(entities: SchemaEntity[]): SchemaRelation[] {
           const keyword = refMatch[1].toLowerCase();
           const target = entities.find(e => e.name.toLowerCase().includes(keyword));
           if (target && target.name !== entity.name) {
+            const pk = target.fields.find(f => f.isPrimary);
             relations.push({
               from: entity.name,
               fromField: field.name,
               to: target.name,
-              toField: 'id',
+              toField: pk ? pk.name : '_id',
               cardinality: field.type.includes('array') || field.type === 'array' ? '1:N' : '1:1',
             });
           }
@@ -227,27 +392,14 @@ function extractRelations(entities: SchemaEntity[]): SchemaRelation[] {
 
       // Self-reference: parent_task, parent_id
       if (field.name === 'parent_task' || field.name === 'parent_id') {
+        const pk = entity.fields.find(f => f.isPrimary);
         relations.push({
           from: entity.name,
           fromField: field.name,
           to: entity.name,
-          toField: 'id',
+          toField: pk ? pk.name : '_id',
           cardinality: '1:1',
         });
-      }
-
-      // Standard SQL REFERENCES
-      if (field.description) {
-        const sqlRef = field.description.match(/references\s+(\w+)\((\w+)\)/i);
-        if (sqlRef && entityNames.includes(sqlRef[1].toLowerCase())) {
-          relations.push({
-            from: entity.name,
-            fromField: field.name,
-            to: sqlRef[1],
-            toField: sqlRef[2],
-            cardinality: '1:1',
-          });
-        }
       }
     }
   }

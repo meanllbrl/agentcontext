@@ -153,6 +153,9 @@ Users need a visual interface to manage agent context without using the terminal
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+
+### 2026-02-26 - Update
+- SQL parser rewrite + SubagentStart briefing restructure: fixed sql-parser.ts line-by-line parsing, added REFERENCES FK detection and JSONB sub-field collapsible groups in SqlPreview. Restructured SubagentStart briefing with directive at top to prevent sub-agents ignoring context files. 325 tests passing.
 ### 2026-02-26 - Enhanced Task Filters
 - Status filter dropdown, text search (name+description), date range with field selector (created_at/updated_at)
 - Filter state persisted via usePersistedState hook (localStorage prefix: agentcontext:)

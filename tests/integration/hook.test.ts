@@ -691,19 +691,17 @@ describe('hook subagent-start (integration)', () => {
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
     expect(ctx_text).toContain('Sub-agent Briefing');
-    expect(ctx_text).toContain('How to Use This Context');
+    expect(ctx_text).toContain('BEFORE searching');
   });
 
-  it('includes system structure with core file descriptions', () => {
+  it('includes context directory reference', () => {
     const output = run('hook subagent-start', tmpDir);
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
-    expect(ctx_text).toContain('Context System Structure');
-    expect(ctx_text).toContain('0.soul.md');
-    expect(ctx_text).toContain('1.user.md');
-    expect(ctx_text).toContain('2.memory.md');
+    expect(ctx_text).toContain('Context Directory');
+    expect(ctx_text).toContain('_agent_context/core/');
+    expect(ctx_text).toContain('_agent_context/knowledge/');
     expect(ctx_text).toContain('features/');
-    expect(ctx_text).toContain('Feature PRDs');
   });
 
   it('includes extended core files index', () => {
@@ -751,13 +749,17 @@ describe('hook subagent-start (integration)', () => {
     expect(ctx_text).toContain('active');
     expect(ctx_text).toContain('visual interface');
     expect(ctx_text).toContain('Tasks: web-dashboard');
+    // Each feature includes a direct read path
+    expect(ctx_text).toContain('--> Read: _agent_context/core/features/web-dashboard.md');
   });
 
-  it('instructs to check feature PRDs first', () => {
+  it('includes top-priority directive to check context before searching', () => {
     const output = run('hook subagent-start', tmpDir);
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
-    expect(ctx_text).toContain('Check feature PRDs first');
-    expect(ctx_text).toContain('_agent_context/core/features/');
+    expect(ctx_text).toContain('BEFORE searching');
+    expect(ctx_text).toContain('_agent_context/');
+    // Directive should appear near the start (within first 500 chars)
+    expect(ctx_text.indexOf('BEFORE searching')).toBeLessThan(500);
   });
 });
