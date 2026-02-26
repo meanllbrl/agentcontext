@@ -5,12 +5,13 @@ description: >-
   Build the agentcontext web dashboard. Full feature PRD at
   core/features/web-dashboard.md. Phase 1-4 complete (server, API, React app,
   all pages, error handling, SQL ER diagram preview, field-level change
-  tracking, UI polish animations, selectedTask bug fix). Phase 5 remaining:
-  accessibility audit, responsive layout, i18n token extraction, bundle audit.
+  tracking, UI polish, TaskDetailPanel Notion-style redesign with marked body
+  rendering). Phase 5 remaining: accessibility audit, responsive layout, i18n
+  token extraction, bundle audit. 336 tests passing.
 priority: critical
 status: in_progress
 created_at: '2026-02-25'
-updated_at: '2026-02-26'
+updated_at: '2026-02-27'
 tags:
   - frontend
   - architecture
@@ -21,6 +22,13 @@ parent_task: null
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+### 2026-02-27 - Notion-Style TaskDetailPanel + Tool Count Scoring
+- TaskDetailPanel: properties block (Notion bordered card, 140px label/1fr value grid) + markdown body via marked@^15
+- Panel widened 520px → 680px; ExpandableText (3-line clamp, requestAnimationFrame scroll height detection)
+- `body: string` added to TaskData (src/server/routes/tasks.ts) + Task interface (useTasks.ts); backward compat maintained
+- Removed: TASK_SECTIONS array, per-section <pre> blocks, all section insert inputs, useInsertTaskSection import
+- Tool count debt scoring: scoreFromToolCount() in hook.ts, Math.max over scoreFromChangeCount; SessionRecord.tool_count field
+- 336 tests passing
 
 ### 2026-02-26 - Session Update
 - SQL parser rewrite (line-by-line parsing, REFERENCES FK detection, JSONB sub-field parsing, isSqlType validation). SqlPreview collapsible JSONB groups with toggle arrows and count badges. SubagentStart briefing restructured: directive at top, features section promoted with direct Read paths, compact context directory reference. 3 integration tests updated. 325 tests passing.

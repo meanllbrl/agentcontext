@@ -29,6 +29,7 @@ interface TaskData {
   notes: string;
   changelog: string;
   sections: string[];
+  body: string;
 }
 
 function readSectionSafe(filePath: string, sectionName: string): string {
@@ -41,7 +42,7 @@ function readSectionSafe(filePath: string, sectionName: string): string {
 
 function readTask(filePath: string): TaskData {
   const slug = basename(filePath, '.md');
-  const { data } = readFrontmatter<Record<string, unknown>>(filePath);
+  const { data, content } = readFrontmatter<Record<string, unknown>>(filePath);
 
   let sections: string[] = [];
   try {
@@ -68,6 +69,7 @@ function readTask(filePath: string): TaskData {
     notes: readSectionSafe(filePath, 'Notes'),
     changelog: readSectionSafe(filePath, 'Changelog'),
     sections,
+    body: content.trim(),
   };
 }
 

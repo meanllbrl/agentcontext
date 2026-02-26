@@ -56,6 +56,9 @@ export function SleepPage() {
                   {session.change_count !== null && (
                     <span className="session-changes">{session.change_count} changes</span>
                   )}
+                  {session.tool_count != null && (
+                    <span className="session-changes">{session.tool_count} tools</span>
+                  )}
                 </div>
                 {session.last_assistant_message && (
                   <p className="session-message">

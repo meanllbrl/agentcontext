@@ -2,7 +2,7 @@
 id: feat_O7LODr7O
 status: active
 created: '2026-02-25'
-updated: '2026-02-26'
+updated: '2026-02-27'
 released_version: 0.1.0
 tags:
   - frontend
@@ -153,6 +153,14 @@ Users need a visual interface to manage agent context without using the terminal
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+### 2026-02-27 - Notion-Style TaskDetailPanel + Tool Count Scoring
+- TaskDetailPanel redesigned: properties block (Notion-style bordered card) at top, full markdown body below via marked@^15
+- Panel widened 520px → 680px; `.props-block`/`.prop-row` CSS grid (140px label / 1fr value)
+- ExpandableText component: 3-line clamp with requestAnimationFrame detection, click to expand/collapse
+- `body: string` field added to TaskData API response (from readFrontmatter content); backward compat maintained
+- Added `marked@^15` to dashboard/package.json (~14KB gzipped, zero transitive deps)
+- Tool count debt scoring: `scoreFromToolCount` added, session score = Math.max(change score, tool score)
+- 336 tests passing
 
 ### 2026-02-26 - Update
 - SQL parser rewrite + SubagentStart briefing restructure: fixed sql-parser.ts line-by-line parsing, added REFERENCES FK detection and JSONB sub-field collapsible groups in SqlPreview. Restructured SubagentStart briefing with directive at top to prevent sub-agents ignoring context files. 325 tests passing.

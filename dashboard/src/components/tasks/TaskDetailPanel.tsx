@@ -1,30 +1,53 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { marked } from 'marked';
 import type { Task } from '../../hooks/useTasks';
-import { useUpdateTask, useAddTaskChangelog, useInsertTaskSection } from '../../hooks/useTasks';
+import { useUpdateTask, useAddTaskChangelog } from '../../hooks/useTasks';
 import { useI18n } from '../../context/I18nContext';
 import './TaskDetailPanel.css';
+
+marked.setOptions({ gfm: true, breaks: true });
 
 interface TaskDetailPanelProps {
   task: Task;
   onClose: () => void;
 }
 
-const TASK_SECTIONS = [
-  { key: 'why', label: 'Why', field: 'why' as const },
-  { key: 'user_stories', label: 'User Stories', field: 'user_stories' as const },
-  { key: 'acceptance_criteria', label: 'Acceptance Criteria', field: 'acceptance_criteria' as const },
-  { key: 'constraints', label: 'Constraints & Decisions', field: 'constraints' as const },
-  { key: 'technical_details', label: 'Technical Details', field: 'technical_details' as const },
-  { key: 'notes', label: 'Notes', field: 'notes' as const },
-] as const;
+function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="prop-row">
+      <span className="prop-label">{label}</span>
+      <div className="prop-value">{children}</div>
+    </div>
+  );
+}
+
+function ExpandableText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    // Check after render with clamped class applied
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (el) setIsTruncated(el.scrollHeight > el.clientHeight + 1);
+    });
+  }, [text]);
+
+  return (
+    <span className="prop-expandable" onClick={() => setExpanded(v => !v)}>
+      <span ref={ref} className={`prop-text ${expanded ? '' : 'prop-text--clamped'}`}>{text}</span>
+      {isTruncated && !expanded && <span className="prop-expand-hint">show more</span>}
+      {expanded && isTruncated && <span className="prop-expand-hint">show less</span>}
+    </span>
+  );
+}
 
 export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const { t } = useI18n();
   const updateTask = useUpdateTask();
   const addChangelog = useAddTaskChangelog();
-  const insertSection = useInsertTaskSection();
   const [changelogEntry, setChangelogEntry] = useState('');
-  const [insertInputs, setInsertInputs] = useState<Record<string, string>>({});
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const onMutationError = (err: Error) => {
@@ -55,14 +78,10 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
     );
   };
 
-  const handleInsertSection = (sectionKey: string) => {
-    const content = insertInputs[sectionKey]?.trim();
-    if (!content) return;
-    insertSection.mutate(
-      { slug: task.slug, section: sectionKey, content },
-      { onSuccess: () => setInsertInputs(prev => ({ ...prev, [sectionKey]: '' })), onError: onMutationError },
-    );
-  };
+  const bodyHtml = useMemo(() => {
+    if (!task.body) return '';
+    return marked.parse(task.body) as string;
+  }, [task.body]);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
@@ -76,13 +95,12 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
           {mutationError && (
             <div className="error-state" style={{ marginBottom: 'var(--space-3)' }}>{mutationError}</div>
           )}
-          <p className="detail-desc">{task.description || 'No description.'}</p>
 
-          <div className="detail-fields">
-            <div className="detail-field">
-              <span className="detail-field-label">Status</span>
+          {/* Properties Block */}
+          <div className="props-block">
+            <PropertyRow label="Status">
               <select
-                className="field-select"
+                className="field-select prop-select"
                 value={task.status}
                 onChange={e => handleStatusChange(e.target.value)}
               >
@@ -90,11 +108,11 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 <option value="in_progress">{t('tasks.in_progress')}</option>
                 <option value="completed">{t('tasks.completed')}</option>
               </select>
-            </div>
-            <div className="detail-field">
-              <span className="detail-field-label">{t('tasks.priority')}</span>
+            </PropertyRow>
+
+            <PropertyRow label={t('tasks.priority')}>
               <select
-                className="field-select"
+                className="field-select prop-select"
                 value={task.priority}
                 onChange={e => handlePriorityChange(e.target.value)}
               >
@@ -103,62 +121,68 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 <option value="high">{t('priority.high')}</option>
                 <option value="critical">{t('priority.critical')}</option>
               </select>
-            </div>
+            </PropertyRow>
+
+            {task.tags.length > 0 && (
+              <PropertyRow label="Tags">
+                <div className="prop-tags">
+                  {task.tags.map(tag => (
+                    <span key={tag} className="task-tag">{tag}</span>
+                  ))}
+                </div>
+              </PropertyRow>
+            )}
+
+            {task.related_feature && (
+              <PropertyRow label="Feature">
+                <span className="prop-feature">{task.related_feature}</span>
+              </PropertyRow>
+            )}
+
+            {task.description && (
+              <PropertyRow label="Description">
+                <ExpandableText text={task.description} />
+              </PropertyRow>
+            )}
+
+            <PropertyRow label="Created">
+              <span className="prop-date">{task.created_at}</span>
+            </PropertyRow>
+
+            <PropertyRow label="Updated">
+              <span className="prop-date">{task.updated_at}</span>
+            </PropertyRow>
+
+            {task.parent_task && (
+              <PropertyRow label="Parent">
+                <span className="prop-text">{task.parent_task}</span>
+              </PropertyRow>
+            )}
+
+            <PropertyRow label="ID">
+              <code className="prop-id">{task.id}</code>
+            </PropertyRow>
           </div>
 
-          {task.tags.length > 0 && (
-            <div className="detail-tags">
-              {task.tags.map(tag => (
-                <span key={tag} className="task-tag">{tag}</span>
-              ))}
-            </div>
+          {/* Divider */}
+          <hr className="detail-divider" />
+
+          {/* Rendered Markdown Body */}
+          {bodyHtml ? (
+            <div
+              className="markdown-body"
+              dangerouslySetInnerHTML={{ __html: bodyHtml }}
+            />
+          ) : (
+            <p className="detail-empty">No content.</p>
           )}
 
-          {task.related_feature && (
-            <div className="detail-field">
-              <span className="detail-field-label">Related Feature</span>
-              <span className="detail-field-value">{task.related_feature}</span>
-            </div>
-          )}
+          {/* Divider */}
+          <hr className="detail-divider" />
 
-          {TASK_SECTIONS.map(({ key, label, field }) => {
-            const content = task[field];
-            const hasContent = content && !content.match(/^\(.*\)$/);
-            return (
-              <div key={key} className="detail-section">
-                <h3 className="detail-section-title">{label}</h3>
-                {hasContent ? (
-                  <pre className="section-content">{content}</pre>
-                ) : (
-                  <p className="detail-empty">No content yet.</p>
-                )}
-                <div className="section-insert">
-                  <input
-                    className="field-input"
-                    value={insertInputs[key] || ''}
-                    onChange={e => setInsertInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                    placeholder={`Add to ${label}...`}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleInsertSection(key);
-                      }
-                    }}
-                  />
-                  <button
-                    className="btn btn--small"
-                    onClick={() => handleInsertSection(key)}
-                    disabled={!insertInputs[key]?.trim() || insertSection.isPending}
-                  >
-                    {insertSection.isPending ? '...' : 'Add'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-
-          <div className="detail-section">
-            <h3 className="detail-section-title">{t('tasks.changelog')}</h3>
+          {/* Changelog Add */}
+          <div className="changelog-section">
+            <h3 className="changelog-title">{t('tasks.changelog')}</h3>
             <form onSubmit={handleAddChangelog} className="changelog-add">
               <input
                 className="field-input"
@@ -166,15 +190,14 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 onChange={e => setChangelogEntry(e.target.value)}
                 placeholder="Add a changelog entry..."
               />
-              <button type="submit" className="btn btn--primary" disabled={!changelogEntry.trim() || addChangelog.isPending}>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={!changelogEntry.trim() || addChangelog.isPending}
+              >
                 {addChangelog.isPending ? '...' : t('tasks.add_entry')}
               </button>
             </form>
-            {task.changelog ? (
-              <pre className="changelog-content">{task.changelog}</pre>
-            ) : (
-              <p className="detail-empty">No changelog entries yet.</p>
-            )}
           </div>
         </div>
       </div>

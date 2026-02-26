@@ -30,7 +30,7 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
 
 - `hook stop` reads session_id, transcript_path, and last_assistant_message from stdin JSON; analyzes transcript for Write/Edit tool uses; stores session record in `state/.sleep.json`.
 - `hook session-start` finds all sessions with `score: null` and analyzes their transcripts; adds computed scores to debt total.
-- Debt scoring: 0 changes = 0, 1-3 changes = +1, 4-8 changes = +2, 9+ changes = +3.
+- Debt scoring: session score = `Math.max(scoreFromChangeCount, scoreFromToolCount)`. `scoreFromChangeCount`: 0=0, 1-3=+1, 4-8=+2, 9+=+3. `scoreFromToolCount`: 0=0, 1-15=+1, 16-40=+2, 41+=+3.
 - Debt levels: 0-3 = Alert, 4-6 = Drowsy, 7-9 = Sleepy, 10+ = Must Sleep.
 - `hook session-start` prepends a CRITICAL consolidation directive to the snapshot output when debt >= 10.
 - `hook session-start` prepends a softer advisory note when debt >= 7.
@@ -65,6 +65,7 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
       "stopped_at": "2026-02-24T18:30:00.000Z",
       "last_assistant_message": "Implemented JWT middleware...",
       "change_count": 7,
+      "tool_count": 35,
       "score": 2
     }
   ]
@@ -75,11 +76,19 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
 1. Session ends → Claude Code fires Stop hook → `hook stop` reads stdin JSON, analyzes transcript, prepends session record to `sessions[]`, adds score to `debt`, writes state.
 2. Next session starts → Claude Code fires SessionStart hook → `hook session-start` finds sessions with `score: null`, analyzes their transcripts, updates scores and debt. Then generates and outputs the snapshot with any consolidation directive prepended.
 
-**Scoring function** (`scoreFromChangeCount` in `src/cli/commands/hook.ts`):
-- 0 changes → 0 debt
+**Scoring function** (`src/cli/commands/hook.ts`): `Math.max(scoreFromChangeCount, scoreFromToolCount)`
+
+`scoreFromChangeCount` (Write/Edit tool calls):
+- 0 changes → 0
 - 1-3 changes → +1 (light session)
 - 4-8 changes → +2 (moderate session)
 - 9+ changes → +3 (heavy session)
+
+`scoreFromToolCount` (all tool calls — catches Bash-heavy sessions with no file writes):
+- 0 tools → 0
+- 1-15 tools → +1
+- 16-40 tools → +2
+- 41+ tools → +3
 
 **Key files**:
 - `src/cli/commands/hook.ts` — hook stop, hook session-start, transcript analysis, debt scoring
@@ -97,6 +106,12 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-02-27 - Tool Count Scoring
+- Added `tool_count` to `SessionRecord` schema (counts all tool calls, not just Write/Edit)
+- Session score now `Math.max(scoreFromChangeCount, scoreFromToolCount)` to avoid under-scoring Bash-heavy sessions
+- Snapshot display updated: `(+2) 0 changes, 35 tools`
+- 336 tests passing
 
 ### 2026-02-25 - Created
 - Feature PRD created.

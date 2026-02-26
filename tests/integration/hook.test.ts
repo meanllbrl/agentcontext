@@ -96,9 +96,10 @@ describe('hook stop (integration)', () => {
     expect(sessions[0].transcript_path).toBe('/tmp/transcript-abc.jsonl');
     expect(sessions[0].last_assistant_message).toBe('I refactored the auth module and added tests.');
     expect(sessions[0].stopped_at).toBeTruthy();
-    // Transcript doesn't exist at /tmp/transcript-abc.jsonl, so 0 changes
+    // Transcript doesn't exist at /tmp/transcript-abc.jsonl, so 0 changes/tools
     expect(sessions[0].score).toBe(0);
     expect(sessions[0].change_count).toBe(0);
+    expect(sessions[0].tool_count).toBe(0);
   });
 
   it('records stopped_at as ISO 8601 timestamp', () => {
@@ -158,6 +159,7 @@ describe('hook stop (integration)', () => {
     expect(state.debt).toBe(2); // 5 writes -> score 2
     const sessions = state.sessions as any[];
     expect(sessions[0].change_count).toBe(5);
+    expect(sessions[0].tool_count).toBe(5);
     expect(sessions[0].score).toBe(2);
   });
 
@@ -272,6 +274,7 @@ describe('hook session-start (integration)', () => {
     expect(state.debt).toBe(2);
     const sessions = state.sessions as any[];
     expect(sessions[0].change_count).toBe(5);
+    expect(sessions[0].tool_count).toBe(5);
     expect(sessions[0].score).toBe(2);
   });
 
@@ -433,7 +436,7 @@ describe('hook session-start (integration)', () => {
     expect(state.debt).toBe(3); // Unchanged (no unanalyzed sessions)
   });
 
-  it('score 0 (no Write/Edit) does not add debt', () => {
+  it('scores debt from tool_count when no Write/Edit present', () => {
     const transcriptPath = join(tmpDir, 'read-only.jsonl');
     writeFileSync(transcriptPath, [toolUseLine('Read'), toolUseLine('Glob')].join('\n'));
 
@@ -453,10 +456,33 @@ describe('hook session-start (integration)', () => {
     runWithStdin('hook session-start', input, tmpDir);
 
     const state = readSleep(ctx);
-    expect(state.debt).toBe(0);
+    // 2 tool calls (Read + Glob) -> toolScore 1, changeScore 0 -> max = 1
+    expect(state.debt).toBe(1);
     const sessions = state.sessions as any[];
-    expect(sessions[0].score).toBe(0);
+    expect(sessions[0].score).toBe(1);
     expect(sessions[0].change_count).toBe(0);
+    expect(sessions[0].tool_count).toBe(2);
+  });
+
+  it('scores debt from tool_count for Bash-heavy sessions', () => {
+    const transcriptPath = join(tmpDir, 'bash-heavy.jsonl');
+    const lines = [
+      ...Array(20).fill(toolUseLine('Bash')),
+      ...Array(5).fill(toolUseLine('Read')),
+      ...Array(10).fill(toolUseLine('Glob')),
+    ];
+    writeFileSync(transcriptPath, lines.join('\n'));
+
+    const input = JSON.stringify({ session_id: 'sess-bash', transcript_path: transcriptPath });
+    runWithStdin('hook stop', input, tmpDir);
+
+    const state = readSleep(ctx);
+    // 35 tools -> toolScore 2, 0 changes -> changeScore 0 -> max = 2
+    expect(state.debt).toBe(2);
+    const sessions = state.sessions as any[];
+    expect(sessions[0].change_count).toBe(0);
+    expect(sessions[0].tool_count).toBe(35);
+    expect(sessions[0].score).toBe(2);
   });
 
   it('outputs empty when no _agent_context/', () => {
@@ -518,6 +544,25 @@ describe('hook session-start (integration)', () => {
     const output = run('snapshot', tmpDir);
     expect(output).toContain('Last session ended: 2026-02-25T10:30:00.000Z');
     expect(output).toContain('Last session summary: Refactored the auth module');
+  });
+
+  it('snapshot includes tool_count in session entries', () => {
+    writeSleep(ctx, {
+      debt: 2,
+      sessions: [{
+        session_id: 'sess-1',
+        transcript_path: '/tmp/t.jsonl',
+        stopped_at: '2026-02-25T10:30:00.000Z',
+        last_assistant_message: 'Bash-heavy session.',
+        change_count: 0,
+        tool_count: 35,
+        score: 2,
+      }],
+    });
+
+    const output = run('snapshot', tmpDir);
+    expect(output).toContain('0 changes');
+    expect(output).toContain('35 tools');
   });
 });
 

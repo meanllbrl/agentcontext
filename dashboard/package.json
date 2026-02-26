@@ -10,7 +10,8 @@
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@tanstack/react-query": "^5.64.0"
+    "@tanstack/react-query": "^5.64.0",
+    "marked": "^15.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

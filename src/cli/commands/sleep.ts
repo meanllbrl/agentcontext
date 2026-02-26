@@ -15,6 +15,7 @@ export interface SessionRecord {
   stopped_at: string | null;
   last_assistant_message: string | null;
   change_count: number | null;
+  tool_count: number | null;
   score: number | null;
 }
 
@@ -127,9 +128,12 @@ export function registerSleepCommand(program: Command): void {
         console.log(`\n  ${chalk.bold('Sessions since last sleep:')}`);
         for (const s of state.sessions) {
           const scoreStr = s.score !== null ? chalk.yellow(`+${s.score}`) : chalk.dim('pending');
-          const changesStr = s.change_count !== null ? chalk.dim(`[${s.change_count} changes]`) : '';
+          const changePart = s.change_count !== null ? `${s.change_count} changes` : '';
+          const toolPart = s.tool_count != null ? `${s.tool_count} tools` : '';
+          const changesStr = [changePart, toolPart].filter(Boolean).join(', ');
+          const changesDisplay = changesStr ? chalk.dim(`[${changesStr}]`) : '';
           const timeStr = s.stopped_at ? chalk.dim(s.stopped_at) : chalk.dim('active');
-          console.log(`  ${timeStr} ${scoreStr} ${changesStr}`);
+          console.log(`  ${timeStr} ${scoreStr} ${changesDisplay}`);
           if (s.last_assistant_message) {
             const preview = s.last_assistant_message.length > 120
               ? s.last_assistant_message.slice(0, 120) + '...'
@@ -170,6 +174,7 @@ export function registerSleepCommand(program: Command): void {
         stopped_at: new Date().toISOString(),
         last_assistant_message: description.trim(),
         change_count: null,
+        tool_count: null,
         score,
       });
       state.debt += score;

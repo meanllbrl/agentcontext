@@ -141,8 +141,10 @@ export function generateSnapshot(): string {
       parts.push(`- Entries since last sleep:`);
       for (const s of sleepState.sessions) {
         const scoreStr = s.score !== null ? `(+${s.score})` : '(pending)';
-        const changesStr = s.change_count !== null ? ` ${s.change_count} changes` : '';
-        parts.push(`  - ${s.stopped_at ?? 'active'} ${scoreStr}${changesStr}`);
+        const changePart = s.change_count !== null ? `${s.change_count} changes` : '';
+        const toolPart = s.tool_count != null ? `${s.tool_count} tools` : '';
+        const metricsStr = [changePart, toolPart].filter(Boolean).join(', ');
+        parts.push(`  - ${s.stopped_at ?? 'active'} ${scoreStr}${metricsStr ? ` ${metricsStr}` : ''}`);
         if (s.last_assistant_message) {
           const preview = s.last_assistant_message.length > 200
             ? s.last_assistant_message.slice(0, 200) + '...'

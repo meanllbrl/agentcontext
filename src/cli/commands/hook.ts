@@ -30,19 +30,34 @@ function readStdin(): Record<string, unknown> | null {
 // ─── Transcript Analysis ────────────────────────────────────────────────────
 
 /**
- * Count Write and Edit tool uses in a JSONL transcript file.
- * Returns the raw count (not the score). Returns 0 on any error.
+ * Result of analyzing a JSONL transcript file.
  */
-export function analyzeTranscript(transcriptPath: string): number {
-  if (!existsSync(transcriptPath)) return 0;
+export interface TranscriptAnalysis {
+  changeCount: number;  // Write + Edit tool calls only
+  toolCount: number;    // ALL tool calls (any tool name)
+}
+
+const ZERO_ANALYSIS: TranscriptAnalysis = { changeCount: 0, toolCount: 0 };
+
+/**
+ * Analyze a JSONL transcript file for tool usage.
+ * Returns change count (Write/Edit) and total tool count.
+ * Returns zeros on any error.
+ */
+export function analyzeTranscript(transcriptPath: string): TranscriptAnalysis {
+  if (!existsSync(transcriptPath)) return ZERO_ANALYSIS;
   try {
     const stat = statSync(transcriptPath);
-    if (stat.size === 0 || stat.size > MAX_TRANSCRIPT_BYTES) return 0;
+    if (stat.size === 0 || stat.size > MAX_TRANSCRIPT_BYTES) return ZERO_ANALYSIS;
     const content = readFileSync(transcriptPath, 'utf-8');
-    const matches = content.match(/"name"\s*:\s*"(?:Write|Edit)"/g);
-    return matches ? matches.length : 0;
+    const changeMatches = content.match(/"name"\s*:\s*"(?:Write|Edit)"/g);
+    const toolMatches = content.match(/"name"\s*:\s*"[A-Za-z_]+"/g);
+    return {
+      changeCount: changeMatches ? changeMatches.length : 0,
+      toolCount: toolMatches ? toolMatches.length : 0,
+    };
   } catch {
-    return 0;
+    return ZERO_ANALYSIS;
   }
 }
 
@@ -53,6 +68,17 @@ export function scoreFromChangeCount(count: number): number {
   if (count <= 0) return 0;
   if (count <= 3) return 1;
   if (count <= 8) return 2;
+  return 3;
+}
+
+/**
+ * Map a total tool count to a debt score (0-3).
+ * Higher thresholds than change count because most tools are read-only.
+ */
+export function scoreFromToolCount(count: number): number {
+  if (count <= 0) return 0;
+  if (count <= 15) return 1;
+  if (count <= 40) return 2;
   return 3;
 }
 
@@ -116,9 +142,10 @@ export function registerHookCommand(program: Command): void {
       const state = readSleepState(root);
       const stoppedAt = new Date().toISOString();
 
-      // Analyze transcript immediately so change_count and score are populated at write time
-      const changeCount = transcriptPath ? analyzeTranscript(transcriptPath) : 0;
-      const score = scoreFromChangeCount(changeCount);
+      // Analyze transcript immediately so change_count, tool_count, and score are populated at write time
+      const analysis = transcriptPath ? analyzeTranscript(transcriptPath) : ZERO_ANALYSIS;
+      const { changeCount, toolCount } = analysis;
+      const score = Math.max(scoreFromChangeCount(changeCount), scoreFromToolCount(toolCount));
 
       // Check if session already exists (e.g., stop fired twice for same session)
       const existing = state.sessions.findIndex(s => s.session_id === sessionId);
@@ -131,6 +158,7 @@ export function registerHookCommand(program: Command): void {
         state.sessions[existing].stopped_at = stoppedAt;
         state.sessions[existing].last_assistant_message = lastAssistantMessage;
         state.sessions[existing].change_count = changeCount;
+        state.sessions[existing].tool_count = toolCount;
         state.sessions[existing].score = score;
       } else {
         state.sessions.unshift({
@@ -139,6 +167,7 @@ export function registerHookCommand(program: Command): void {
           stopped_at: stoppedAt,
           last_assistant_message: lastAssistantMessage,
           change_count: changeCount,
+          tool_count: toolCount,
           score,
         });
       }
@@ -167,14 +196,16 @@ export function registerHookCommand(program: Command): void {
         if (session.score !== null) continue;
         if (!session.transcript_path) {
           session.change_count = 0;
+          session.tool_count = 0;
           session.score = 0;
           dirty = true;
           continue;
         }
 
-        const changeCount = analyzeTranscript(session.transcript_path);
-        const score = scoreFromChangeCount(changeCount);
-        session.change_count = changeCount;
+        const analysis = analyzeTranscript(session.transcript_path);
+        const score = Math.max(scoreFromChangeCount(analysis.changeCount), scoreFromToolCount(analysis.toolCount));
+        session.change_count = analysis.changeCount;
+        session.tool_count = analysis.toolCount;
         session.score = score;
         state.debt += score;
         dirty = true;

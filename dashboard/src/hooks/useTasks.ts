@@ -21,6 +21,7 @@ export interface Task {
   notes: string;
   changelog: string;
   sections: string[];
+  body: string;
 }
 
 interface TasksResponse {

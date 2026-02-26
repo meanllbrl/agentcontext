@@ -7,6 +7,7 @@ interface SessionRecord {
   stopped_at: string | null;
   last_assistant_message: string | null;
   change_count: number | null;
+  tool_count: number | null;
   score: number | null;
 }
 
