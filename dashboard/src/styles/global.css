@@ -1,6 +1,31 @@
 @import './tokens.css';
 @import './reset.css';
 
+/* ─── Base ─── */
+body {
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(circle at 15% 50%, var(--gradient-brand-subtle), transparent 40%),
+    radial-gradient(circle at 85% 30%, var(--gradient-brand-subtle), transparent 40%);
+  background-size: 150vw 150vh;
+  background-attachment: fixed;
+  animation: subtle-pulse 20s ease-in-out infinite alternate;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  /* Prevent body scroll, everything handled by Shell panels */
+}
+
+@keyframes subtle-pulse {
+  0% {
+    background-position: 0% 0%;
+  }
+
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 6px;
@@ -84,6 +109,7 @@
 
 /* ─── Reduced Motion ─── */
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -91,4 +117,53 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ─── Staggered Entrances ─── */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-stagger {
+  animation: slide-up-fade 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-stagger-1 {
+  animation-delay: 50ms;
+}
+
+.animate-stagger-2 {
+  animation-delay: 100ms;
+}
+
+.animate-stagger-3 {
+  animation-delay: 150ms;
+}
+
+.animate-stagger-4 {
+  animation-delay: 200ms;
+}
+
+.animate-stagger-5 {
+  animation-delay: 250ms;
+}
+
+.animate-stagger-6 {
+  animation-delay: 300ms;
+}
+
+.animate-stagger-7 {
+  animation-delay: 350ms;
+}
+
+.animate-stagger-8 {
+  animation-delay: 400ms;
 }

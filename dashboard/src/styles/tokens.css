@@ -76,16 +76,24 @@
   --color-status-in-progress: hsl(220 90% 56%);
   --color-status-completed: hsl(142 71% 40%);
 
-  /* ─── Shadows (Purple Tint) ─── */
-  --shadow-sm: 0 1px 2px hsl(276 20% 10% / 0.05);
-  --shadow-md: 0 2px 8px hsl(276 20% 10% / 0.08);
-  --shadow-lg: 0 4px 16px hsl(276 20% 10% / 0.12);
-  --shadow-xl: 0 8px 32px hsl(276 20% 10% / 0.16);
+  /* ─── Shadows (Premium Depth) ─── */
+  --shadow-sm: 0 2px 4px hsl(276 20% 10% / 0.04), 0 1px 2px hsl(276 20% 10% / 0.08);
+  --shadow-md: 0 4px 12px hsl(276 20% 10% / 0.06), 0 2px 4px hsl(276 20% 10% / 0.08);
+  --shadow-lg: 0 12px 24px hsl(276 20% 10% / 0.08), 0 4px 8px hsl(276 20% 10% / 0.06);
+  --shadow-xl: 0 24px 48px hsl(276 20% 10% / 0.12), 0 12px 24px hsl(276 20% 10% / 0.08);
+  --shadow-glow: 0 0 24px hsl(287 100% 33% / 0.3);
 
-  /* ─── Transitions ─── */
-  --transition-fast: 120ms ease;
-  --transition-normal: 200ms ease;
-  --transition-slow: 320ms ease;
+  /* ─── Glassmorphism ─── */
+  --glass-bg: hsl(0 0% 100% / 0.75);
+  --glass-bg-hover: hsl(0 0% 100% / 0.85);
+  --glass-border: hsl(0 0% 100% / 0.4);
+  --glass-blur: blur(16px);
+
+  /* ─── Transitions (Sub-millisecond Easing) ─── */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* ─── Layout ─── */
   --sidebar-width: 240px;
@@ -107,8 +115,17 @@
   --color-success-subtle: hsl(142 71% 12%);
   --color-warning-subtle: hsl(38 80% 12%);
   --color-error-subtle: hsl(0 84% 12%);
-  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.2);
-  --shadow-md: 0 2px 8px hsl(0 0% 0% / 0.3);
-  --shadow-lg: 0 4px 16px hsl(0 0% 0% / 0.4);
-  --shadow-xl: 0 8px 32px hsl(0 0% 0% / 0.5);
+  --color-error-subtle: hsl(0 84% 12%);
+
+  /* ─── Dark Mode Shadows ─── */
+  --shadow-sm: 0 2px 4px hsl(0 0% 0% / 0.3), 0 1px 2px hsl(0 0% 0% / 0.4);
+  --shadow-md: 0 4px 12px hsl(0 0% 0% / 0.4), 0 2px 4px hsl(0 0% 0% / 0.5);
+  --shadow-lg: 0 12px 24px hsl(0 0% 0% / 0.5), 0 4px 8px hsl(0 0% 0% / 0.4);
+  --shadow-xl: 0 24px 48px hsl(0 0% 0% / 0.6), 0 12px 24px hsl(0 0% 0% / 0.5);
+  --shadow-glow: 0 0 24px hsl(287 100% 33% / 0.4);
+
+  /* ─── Dark Mode Glassmorphism ─── */
+  --glass-bg: hsl(240 5% 12% / 0.65);
+  --glass-bg-hover: hsl(240 5% 16% / 0.75);
+  --glass-border: hsl(0 0% 100% / 0.08);
 }

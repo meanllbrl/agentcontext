@@ -48,10 +48,10 @@ export function FeaturesPage() {
       <div className="features-layout">
         <div className="features-list">
           {features.length === 0 && <div className="core-empty">{t('common.empty')}</div>}
-          {features.map(feature => (
+          {features.map((feature, index) => (
             <button
               key={feature.slug}
-              className={`feature-card ${selected === feature.slug ? 'feature-card--active' : ''}`}
+              className={`feature-card ${selected === feature.slug ? 'feature-card--active' : ''} animate-stagger animate-stagger-${Math.min(index + 1, 8)}`}
               onClick={() => setSelected(feature.slug)}
             >
               <div className="feature-card-header">

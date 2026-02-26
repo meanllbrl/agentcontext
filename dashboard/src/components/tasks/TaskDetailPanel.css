@@ -12,8 +12,10 @@
   width: 100%;
   max-width: 520px;
   height: 100vh;
-  background: var(--color-bg);
-  border-left: 1px solid var(--color-border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-left: 1px solid var(--glass-border);
   box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
@@ -21,8 +23,13 @@
 }
 
 @keyframes slide-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 .detail-header {
@@ -110,7 +117,10 @@
   line-height: var(--line-height-relaxed);
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--color-bg-secondary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.05);
   padding: var(--space-3);
   border-radius: var(--radius-md);
   max-height: 300px;
@@ -135,7 +145,10 @@
   line-height: var(--line-height-relaxed);
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--color-bg-secondary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.05);
   padding: var(--space-3);
   border-radius: var(--radius-md);
   max-height: 200px;

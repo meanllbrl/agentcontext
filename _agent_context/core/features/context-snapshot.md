@@ -62,7 +62,8 @@ Every AI session starts blind — no memory of previous work, no knowledge of pr
 4. Extended Core Files index — built by `buildCoreIndex()` in `src/lib/core-index.ts`; scans `core/[3-9]*`, reads frontmatter `name`/`type`/`summary` fields
 5. Active Tasks — fast-glob `state/*.md`, reads frontmatter, skips `status: completed`
 6. Sleep State — read from `state/.sleep.json` via `readSleepState()`
-7. Recent Changelog — last 5 entries from `core/CHANGELOG.json`
+7. Recent Changelog — last 3 entries from `core/CHANGELOG.json` (reduced from 5)
+7a. Latest Release — most recent entry from `core/RELEASES.json` (version, date, summary)
 8. Features summary — fast-glob `core/features/*.md`, reads frontmatter + `## Why` + `## Changelog` sections
 9. Knowledge Index — built by `buildKnowledgeIndex()` in `src/lib/knowledge-index.ts`; sorted pinned-first then alphabetical
 10. Pinned Knowledge — full content of any knowledge entry where `pinned: true`
@@ -84,6 +85,11 @@ Every AI session starts blind — no memory of previous work, no knowledge of pr
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-02-26 - Latest Release Section + Changelog Limit
+- Added Latest Release section to snapshot (reads most recent entry from RELEASES.json, shows version/date/summary).
+- Recent Changelog reduced from 5 to 3 entries to balance token budget.
+- `src/lib/release-discovery.ts` drives both the snapshot section and the `releases add` auto-discovery.
 
 ### 2026-02-25 - SubagentStart Hook Support
 - Added `hook subagent-start` subcommand outputting JSON with lightweight context briefing for all sub-agents.

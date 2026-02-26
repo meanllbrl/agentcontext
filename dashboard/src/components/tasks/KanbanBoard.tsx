@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import type { Task } from '../../hooks/useTasks';
 import { useTasks, useUpdateTask } from '../../hooks/useTasks';
+import { usePersistedState } from '../../hooks/usePersistedState';
 import { useI18n } from '../../context/I18nContext';
 import { KanbanColumn } from './KanbanColumn';
-import { TaskFilters, type SortField, type GroupBy } from './TaskFilters';
+import { TaskFilters, DEFAULT_FILTERS, type FilterState, type FilterPreset, type SortField } from './TaskFilters';
 import { TaskCreateModal } from './TaskCreateModal';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import './KanbanBoard.css';
@@ -37,28 +38,83 @@ function sortTasks(tasks: Task[], field: SortField): Task[] {
   });
 }
 
+function applyFilters(tasks: Task[], filters: FilterState): Task[] {
+  let result = tasks;
+
+  if (filters.searchQuery.trim()) {
+    const q = filters.searchQuery.trim().toLowerCase();
+    result = result.filter(t =>
+      t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    );
+  }
+
+  if (filters.statusFilter) {
+    result = result.filter(t => t.status === filters.statusFilter);
+  }
+
+  if (filters.priorityFilter) {
+    result = result.filter(t => t.priority === filters.priorityFilter);
+  }
+
+  if (filters.tagFilter.trim()) {
+    const tag = filters.tagFilter.trim().toLowerCase();
+    result = result.filter(t => t.tags.some(tt => tt.toLowerCase().includes(tag)));
+  }
+
+  if (filters.dateFrom || filters.dateTo) {
+    const field = filters.dateField;
+    if (filters.dateFrom) {
+      result = result.filter(t => t[field].slice(0, 10) >= filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      result = result.filter(t => t[field].slice(0, 10) <= filters.dateTo);
+    }
+  }
+
+  return sortTasks(result, filters.sortField);
+}
+
 export function KanbanBoard() {
   const { t } = useI18n();
   const { data: tasks, isLoading, isError, error } = useTasks();
   const updateTask = useUpdateTask();
   const [showCreate, setShowCreate] = useState(false);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const [priorityFilter, setPriorityFilter] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
-  const [sortField, setSortField] = useState<SortField>('updated_at');
-  const [groupBy, setGroupBy] = useState<GroupBy>('status');
+  const [filters, setFilters] = usePersistedState<FilterState>('kanban-filters', DEFAULT_FILTERS);
+  const [presets, setPresets] = usePersistedState<FilterPreset[]>('kanban-presets', []);
+
+  const handleFilterChange = useCallback(<K extends keyof FilterState>(key: K, value: FilterState[K]) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  }, [setFilters]);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters(prev => ({
+      ...DEFAULT_FILTERS,
+      sortField: prev.sortField,
+      groupBy: prev.groupBy,
+    }));
+  }, [setFilters]);
+
+  const handleSavePreset = useCallback((name: string) => {
+    const preset: FilterPreset = {
+      id: Date.now().toString(36),
+      name,
+      filters: { ...filters },
+    };
+    setPresets(prev => [...prev, preset]);
+  }, [filters, setPresets]);
+
+  const handleLoadPreset = useCallback((preset: FilterPreset) => {
+    setFilters(preset.filters);
+  }, [setFilters]);
+
+  const handleDeletePreset = useCallback((id: string) => {
+    setPresets(prev => prev.filter(p => p.id !== id));
+  }, [setPresets]);
 
   const filtered = useMemo(() => {
-    let result = tasks ?? [];
-    if (priorityFilter) {
-      result = result.filter(t => t.priority === priorityFilter);
-    }
-    if (tagFilter.trim()) {
-      const tag = tagFilter.trim().toLowerCase();
-      result = result.filter(t => t.tags.some(tt => tt.toLowerCase().includes(tag)));
-    }
-    return sortTasks(result, sortField);
-  }, [tasks, priorityFilter, tagFilter, sortField]);
+    return applyFilters(tasks ?? [], filters);
+  }, [tasks, filters]);
 
   const selectedTask = useMemo(() => {
     if (!selectedSlug || !tasks) return null;
@@ -79,19 +135,18 @@ export function KanbanBoard() {
   return (
     <div className="kanban-board">
       <TaskFilters
-        priorityFilter={priorityFilter}
-        onPriorityFilterChange={setPriorityFilter}
-        tagFilter={tagFilter}
-        onTagFilterChange={setTagFilter}
-        sortField={sortField}
-        onSortFieldChange={setSortField}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onClearFilters={handleClearFilters}
         onCreateClick={() => setShowCreate(true)}
+        presets={presets}
+        onSavePreset={handleSavePreset}
+        onLoadPreset={handleLoadPreset}
+        onDeletePreset={handleDeletePreset}
       />
 
       <div className="kanban-columns">
-        {groupBy === 'status' && STATUS_COLUMNS.map(col => {
+        {filters.groupBy === 'status' && STATUS_COLUMNS.map((col, index) => {
           const colTasks = filtered.filter(t => t.status === col.status);
           return (
             <KanbanColumn
@@ -103,11 +158,12 @@ export function KanbanBoard() {
               colorVar={col.colorVar}
               onTaskClick={(task) => setSelectedSlug(task.slug)}
               onDrop={handleDrop}
+              staggerIndex={index + 1}
             />
           );
         })}
 
-        {groupBy === 'priority' && PRIORITY_COLUMNS.map(col => {
+        {filters.groupBy === 'priority' && PRIORITY_COLUMNS.map((col, index) => {
           const colTasks = filtered.filter(t => t.priority === col.key);
           return (
             <KanbanColumn
@@ -121,11 +177,12 @@ export function KanbanBoard() {
               onDrop={(slug, newPriority) => {
                 updateTask.mutate({ slug, updates: { priority: newPriority as Task['priority'] } });
               }}
+              staggerIndex={index + 1}
             />
           );
         })}
 
-        {groupBy === 'none' && (
+        {filters.groupBy === 'none' && (
           <KanbanColumn
             title="All Tasks"
             status="all"
@@ -133,7 +190,7 @@ export function KanbanBoard() {
             count={filtered.length}
             colorVar="--color-brand-vivid"
             onTaskClick={(task) => setSelectedSlug(task.slug)}
-            onDrop={() => {}}
+            onDrop={() => { }}
           />
         )}
       </div>

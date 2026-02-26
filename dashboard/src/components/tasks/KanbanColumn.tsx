@@ -11,6 +11,7 @@ interface KanbanColumnProps {
   colorVar: string;
   onTaskClick: (task: Task) => void;
   onDrop: (slug: string, newStatus: string) => void;
+  staggerIndex?: number;
 }
 
 export function KanbanColumn({ title, status, tasks, count, colorVar, onTaskClick, onDrop }: KanbanColumnProps) {

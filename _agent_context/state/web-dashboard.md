@@ -4,13 +4,13 @@ name: web-dashboard
 description: >-
   Build the agentcontext web dashboard. Full feature PRD at
   core/features/web-dashboard.md. Phase 1-4 complete (server, API, React app,
-  all pages, error handling, SQL ER diagram preview, field-level change tracking).
-  Phase 5 remaining: accessibility audit, responsive layout, i18n token extraction,
-  bundle size audit.
+  all pages, error handling, SQL ER diagram preview, field-level change
+  tracking, UI polish animations, selectedTask bug fix). Phase 5 remaining:
+  accessibility audit, responsive layout, i18n token extraction, bundle audit.
 priority: critical
 status: in_progress
 created_at: '2026-02-25'
-updated_at: '2026-02-25'
+updated_at: '2026-02-26'
 tags:
   - frontend
   - architecture
@@ -20,6 +20,22 @@ parent_task: null
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-02-26 - Enhanced Task Filters + localStorage Persistence
+- Added status filter dropdown to Kanban filters
+- Added text search input (searches task name + description)
+- Added date range filter with field selector (created_at or updated_at)
+- All filter state persisted to localStorage via new usePersistedState hook (prefix: agentcontext:)
+- Clear Filters button shows active-count badge; clears filters but preserves sortField and groupBy
+- FilterState interface and DEFAULT_FILTERS exported from TaskFilters.tsx for type safety
+
+### 2026-02-26 - UI Polish + Bug Fix + Release Discovery
+- Fixed selectedTask stale snapshot bug: now stores selectedSlug + derives task via useMemo from live query data
+- CSS polish: animated radial brand gradient background (subtle-pulse 20s), stagger entrance animations for Kanban columns (slide-up-fade with spring curve)
+- Refined CSS across all components: Header, Sidebar, TaskCard, TaskCreateModal, TaskDetailPanel, CorePage, FeaturesPage, SleepPage, tokens
+- Release discovery system shipped: releases add --yes, releases list, releases show, 3 new API routes, back-populates features
+- README and DEEP-DIVE fully updated with Dashboard section and release commands
+- 325 tests passing
 
 ### 2026-02-25 - Phase 4 Polish Complete
 - Error boundaries, loading states, res.ok checks in API client (274 tests)

@@ -4,18 +4,20 @@
   border-radius: var(--radius-md);
   padding: var(--space-3);
   cursor: grab;
-  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+  transition: all var(--transition-bounce);
   user-select: none;
 }
 
 .task-card:hover {
-  border-color: var(--color-border-hover);
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-brand-vivid);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
 }
 
 .task-card:active {
   cursor: grabbing;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
+  transform: scale(0.98);
 }
 
 .task-card-header {
@@ -32,10 +34,21 @@
   flex-shrink: 0;
 }
 
-.priority-dot--critical { background: var(--color-priority-critical); }
-.priority-dot--high { background: var(--color-priority-high); }
-.priority-dot--medium { background: var(--color-priority-medium); }
-.priority-dot--low { background: var(--color-priority-low); }
+.priority-dot--critical {
+  background: var(--color-priority-critical);
+}
+
+.priority-dot--high {
+  background: var(--color-priority-high);
+}
+
+.priority-dot--medium {
+  background: var(--color-priority-medium);
+}
+
+.priority-dot--low {
+  background: var(--color-priority-low);
+}
 
 .task-card-name {
   font-size: var(--font-size-sm);

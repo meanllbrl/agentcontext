@@ -15,5 +15,5 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--space-6);
-  background: var(--color-bg);
+  background: transparent;
 }

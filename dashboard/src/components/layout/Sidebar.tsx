@@ -22,8 +22,8 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   return (
     <nav className="sidebar">
       <ul className="sidebar-nav">
-        {NAV_ITEMS.map(({ page, icon, labelKey }) => (
-          <li key={page}>
+        {NAV_ITEMS.map(({ page, icon, labelKey }, index) => (
+          <li key={page} className={`animate-stagger animate-stagger-${index + 1}`}>
             <button
               className={`sidebar-item ${activePage === page ? 'sidebar-item--active' : ''}`}
               onClick={() => onNavigate(page)}

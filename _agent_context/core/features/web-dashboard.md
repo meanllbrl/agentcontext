@@ -17,7 +17,7 @@ Users need a visual interface to manage agent context without using the terminal
 - [ ] As a user, I want to run `agentcontext dashboard` and have a web UI open in my browser so that I can manage my project context visually
 - [ ] As a user, I want to see a Kanban board of my tasks so that I can track work status at a glance
 - [ ] As a user, I want to drag tasks between columns (todo, in_progress, completed) so that I can update status without typing commands
-- [ ] As a user, I want to filter tasks by priority, tags, and sort by date/priority/name so that I can find specific tasks quickly
+- [ ] As a user, I want to filter tasks by status, priority, tags, text search, and date range so that I can find specific tasks quickly
 - [ ] As a user, I want to group tasks by status, priority, or see them ungrouped so that I can organize the board to my preference
 - [ ] As a user, I want to create new tasks from the dashboard with name, description, priority, and tags so that I can add work without the CLI
 - [ ] As a user, I want to update task fields (status, priority, description) and add changelog entries from a detail panel so that I can keep tasks current
@@ -36,7 +36,12 @@ Users need a visual interface to manage agent context without using the terminal
 ### Kanban Board
 - [ ] Board shows three columns by default: To Do, In Progress, Completed
 - [ ] Tasks can be dragged between columns, status updates on drop
+- [ ] Filter by status (todo/in_progress/completed) works
 - [ ] Filter by priority (critical/high/medium/low) works
+- [ ] Text search filters by task name and description
+- [ ] Date range filter (from/to) on created_at or updated_at field works
+- [ ] Filter state persists across page reloads via localStorage
+- [ ] Clear Filters button resets filter fields but preserves sort and groupBy
 - [ ] Filter by tag (text search) works
 - [ ] Sort by updated date, created date, priority, name works
 - [ ] Group by status (default), priority, or no grouping works
@@ -138,11 +143,22 @@ Users need a visual interface to manage agent context without using the terminal
 - The dashboard reads/writes the same _agent_context/ files as the CLI. No separate database.
 - Port 4173 chosen to match Vite preview convention. Configurable with --port flag.
 - The server keeps running until Ctrl+C. It does not daemonize.
-- Phase 4 complete (error handling, SQL ER diagram, field-level diffs). Phase 5 (a11y, responsive, i18n tokens, bundle audit) pending.
+- Phase 4b complete. Enhanced filters added (status, text search, date range, localStorage persistence). Phase 5 (a11y, responsive, i18n tokens, bundle audit) pending.
 - The Visby CF font is commercial. Dashboard uses system font fallback if Visby CF is not installed.
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-02-26 - Enhanced Task Filters
+- Status filter dropdown, text search (name+description), date range with field selector (created_at/updated_at)
+- Filter state persisted via usePersistedState hook (localStorage prefix: agentcontext:)
+- Clear Filters button with active-count badge; preserves sortField and groupBy on clear
+
+### 2026-02-26 - UI Polish + Bug Fix
+- Fixed selectedTask stale snapshot: selectedSlug string + useMemo derivation from live TanStack Query data
+- Animated brand gradient background with subtle-pulse, stagger entrance animations for Kanban columns
+- CSS refinements: Header, Sidebar, Shell, KanbanColumn, TaskCard, TaskCreateModal, TaskDetailPanel, TaskFilters, CorePage, FeaturesPage, SleepPage, tokens
+- Release discovery UI connected: releases list/show/add from dashboard API
 
 ### 2026-02-25 - Phase 4 Polish
 - Error handling: ErrorBoundary, res.ok checks, mutation error feedback with auto-dismiss

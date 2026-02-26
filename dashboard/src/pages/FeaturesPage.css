@@ -25,17 +25,22 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   text-align: left;
-  background: var(--color-bg);
-  transition: border-color var(--transition-fast);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition: all var(--transition-bounce);
 }
 
 .feature-card:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-brand-vivid);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(4px);
 }
 
 .feature-card--active {
   border-color: var(--color-brand-vivid);
-  box-shadow: 0 0 0 1px var(--color-brand-vivid);
+  box-shadow: inset 4px 0 0 0 var(--color-brand-vivid), var(--shadow-md);
+  background: var(--gradient-brand-subtle);
 }
 
 .feature-card-header {

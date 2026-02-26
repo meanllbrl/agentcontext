@@ -1,5 +1,40 @@
 [
   {
+    "date": "2026-02-26",
+    "type": "feat",
+    "scope": "dashboard",
+    "description": "Enhance Kanban task filters: added status filter dropdown, text search (searches name + description), and date range filter with field selector (created_at/updated_at). Filter state persisted via usePersistedState hook (localStorage prefix: agentcontext:). Clear Filters button with active-count badge. FilterState interface exported from TaskFilters.tsx; applyFilters() in KanbanBoard.tsx handles all filter logic.",
+    "breaking": false
+  },
+  {
+    "date": "2026-02-26",
+    "type": "fix",
+    "scope": "dashboard",
+    "description": "Fix selectedTask stale snapshot bug in KanbanBoard. Replaced storing a full Task object in React state with storing selectedSlug (string | null) and deriving the task via useMemo from live TanStack Query data. Detail panel now reflects post-mutation state automatically. 325 tests passing.",
+    "breaking": false
+  },
+  {
+    "date": "2026-02-26",
+    "type": "feat",
+    "scope": "dashboard",
+    "description": "Polish dashboard UI: animated radial brand gradient background with subtle-pulse animation, stagger entrance animations for Kanban columns (slide-up-fade with cubic-bezier spring), CSS refinements across Header, Sidebar, Shell, KanbanColumn, TaskCard, TaskCreateModal, TaskDetailPanel, TaskFilters, CorePage, FeaturesPage, SleepPage, tokens. 325 tests passing.",
+    "breaking": false
+  },
+  {
+    "date": "2026-02-26",
+    "type": "feat",
+    "scope": "releases",
+    "description": "Build release discovery system: src/lib/release-discovery.ts auto-discovers unreleased tasks, features, and changelog entries. New CLI commands: releases add --yes (non-interactive, auto-includes all unreleased items), releases list, releases show. 3 new API routes (GET /api/releases/unreleased, GET /api/releases/:version, POST /api/releases). release-backpopulate.ts sets released_version on features. Snapshot shows Latest Release section (changelog limit lowered from 5 to 3). 13 unit + 10 integration tests added; 325 total passing.",
+    "breaking": false
+  },
+  {
+    "date": "2026-02-26",
+    "type": "docs",
+    "scope": "readme",
+    "description": "Update README and DEEP-DIVE: added Dashboard nav link, interactive mode mention, expanded Mermaid lifecycle diagram (features/changelog/releases in store, dashboard in capture), full Dashboard section with usage and design notes, releases add --yes and releases list/show commands, release auto-discovery explanation, Dashboard command subsection, SubagentStart briefing in hook flow diagram.",
+    "breaking": false
+  },
+  {
     "date": "2026-02-25",
     "type": "feat",
     "scope": "subagent",

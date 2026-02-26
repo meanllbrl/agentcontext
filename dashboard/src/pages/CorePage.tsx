@@ -72,10 +72,10 @@ export function CorePage() {
       <h1 className="page-title">{t('core.title')}</h1>
       <div className="core-layout">
         <div className="core-list">
-          {files.map(file => (
+          {files.map((file, index) => (
             <button
               key={file.filename}
-              className={`core-list-item ${selected === file.filename ? 'core-list-item--active' : ''}`}
+              className={`core-list-item ${selected === file.filename ? 'core-list-item--active' : ''} animate-stagger animate-stagger-${Math.min(index + 1, 8)}`}
               onClick={() => { setSelected(file.filename); setIsEditing(false); setViewTab('preview'); }}
             >
               <span className="core-list-name">{file.name}</span>
