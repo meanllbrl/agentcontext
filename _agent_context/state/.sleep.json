@@ -1,8 +1,25 @@
 {
-  "debt": 0,
+  "debt": 4,
   "last_sleep": "2026-02-26",
   "last_sleep_summary": "Consolidated SQL parser rewrite (line-by-line parsing, REFERENCES FK, JSONB sub-fields), SqlPreview collapsible JSONB groups, and SubagentStart briefing restructure (directive at top, features with Read paths). 325 tests passing.",
   "sleep_started_at": null,
-  "sessions": [],
+  "sessions": [
+    {
+      "session_id": "fcbf4f40-db0d-4ada-8faf-337f04cdef10",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/fcbf4f40-db0d-4ada-8faf-337f04cdef10.jsonl",
+      "stopped_at": "2026-02-26T14:28:48.771Z",
+      "last_assistant_message": "325 tests passing. The subagent briefing now includes a **Core Files** section listing all core files (0.soul, 1.user, 2.memory, 3.style_guide, 4.tech_stack, 5.data_structures) with their paths. Sub-agents like rem-sleep can now see everything that exists and decide what to read/update.",
+      "change_count": 2,
+      "score": 1
+    },
+    {
+      "session_id": "ba7e504f-d84a-45f6-834c-15bb2a9870d4",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/ba7e504f-d84a-45f6-834c-15bb2a9870d4.jsonl",
+      "stopped_at": "2026-02-26T14:07:44.810Z",
+      "last_assistant_message": "Pushed. Two commits went up (the v0.1.0 release that was ahead + this one).",
+      "change_count": 12,
+      "score": 3
+    }
+  ],
   "dashboard_changes": []
 }

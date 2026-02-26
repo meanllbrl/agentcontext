@@ -426,18 +426,35 @@ export function generateSubagentBriefing(): string {
     }
   }
 
-  // 5. Extended Core Files index (files 3+, not loaded in full)
-  const coreExtras = buildCoreIndex(root);
-  if (coreExtras.length > 0) {
-    parts.push('## Extended Core Files\n');
-    for (const entry of coreExtras) {
-      let line = `- **${entry.name}** (${entry.path})`;
-      if (entry.summary) {
-        line += `: ${entry.summary}`;
+  // 5. All Core Files index (so sub-agents know what exists to read/update)
+  const coreDir = join(root, 'core');
+  if (existsSync(coreDir)) {
+    const allCoreFiles = fg.sync(['[0-9]*'], { cwd: coreDir, absolute: true });
+    allCoreFiles.sort((a, b) => basename(a).localeCompare(basename(b)));
+
+    if (allCoreFiles.length > 0) {
+      parts.push('## Core Files\n');
+      for (const file of allCoreFiles) {
+        const filename = basename(file);
+        const relativePath = `_agent_context/core/${filename}`;
+
+        if (filename.endsWith('.json')) {
+          const name = filename.replace(/^\d+\./, '').replace(/\.\w+$/, '').replace(/_/g, ' ');
+          parts.push(`- **${name}** (${relativePath})`);
+          continue;
+        }
+
+        try {
+          const { data } = readFrontmatter(file);
+          const name = String(data.name ?? filename);
+          const summary = data.summary ? `: ${String(data.summary)}` : '';
+          parts.push(`- **${name}** (${relativePath})${summary}`);
+        } catch {
+          parts.push(`- **${filename}** (${relativePath})`);
+        }
       }
-      parts.push(line);
+      parts.push('');
     }
-    parts.push('');
   }
 
   // 6. Active tasks

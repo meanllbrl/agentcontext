@@ -718,7 +718,7 @@ describe('hook subagent-start (integration)', () => {
     const output = run('hook subagent-start', tmpDir);
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
-    expect(ctx_text).toContain('Extended Core Files');
+    expect(ctx_text).toContain('Core Files');
     expect(ctx_text).toContain('Tech Stack');
     expect(ctx_text).toContain('TypeScript CLI with Node.js');
   });
