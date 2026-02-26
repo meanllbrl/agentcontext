@@ -1,11 +1,15 @@
 ---
-id: "feat_O7LODr7O"
-status: "active"
-created: "2026-02-25"
-updated: "2026-02-25"
-released_version: null
-tags: ["frontend", "architecture", "design"]
-related_tasks: ["web-dashboard"]
+id: feat_O7LODr7O
+status: active
+created: '2026-02-25'
+updated: '2026-02-26'
+released_version: 0.1.0
+tags:
+  - frontend
+  - architecture
+  - design
+related_tasks:
+  - web-dashboard
 ---
 
 ## Why

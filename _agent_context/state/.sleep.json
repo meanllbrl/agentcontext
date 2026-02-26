@@ -5,6 +5,14 @@
   "sleep_started_at": null,
   "sessions": [
     {
+      "session_id": "20f97833-efe3-461d-890e-7ce1978227e7",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/20f97833-efe3-461d-890e-7ce1978227e7.jsonl",
+      "stopped_at": "2026-02-26T11:28:50.186Z",
+      "last_assistant_message": "Release `0.1.0` created with 1 task, 7 features, and all 24 changelog entries. Features have been back-populated with `released_version=\"0.1.0\"`.",
+      "change_count": 0,
+      "score": 0
+    },
+    {
       "session_id": "56e53a09-9dd8-44b9-a778-77efc09b65ad",
       "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/56e53a09-9dd8-44b9-a778-77efc09b65ad.jsonl",
       "stopped_at": "2026-02-26T00:05:37.630Z",

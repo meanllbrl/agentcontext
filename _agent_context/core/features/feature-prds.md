@@ -1,10 +1,13 @@
 ---
-id: "feat_twaJVmWW"
-status: "active"
-created: "2026-02-25"
-updated: "2026-02-25"
-released_version: null
-tags: ["architecture", "decisions", "domain"]
+id: feat_twaJVmWW
+status: active
+created: '2026-02-25'
+updated: '2026-02-26'
+released_version: 0.1.0
+tags:
+  - architecture
+  - decisions
+  - domain
 related_tasks: []
 ---
 

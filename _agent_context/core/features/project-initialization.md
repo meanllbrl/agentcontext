@@ -1,10 +1,13 @@
 ---
-id: "feat_cSWvTF1K"
-status: "active"
-created: "2026-02-25"
-updated: "2026-02-25"
-released_version: null
-tags: ["devops", "onboarding", "architecture"]
+id: feat_cSWvTF1K
+status: active
+created: '2026-02-25'
+updated: '2026-02-26'
+released_version: 0.1.0
+tags:
+  - devops
+  - onboarding
+  - architecture
 related_tasks: []
 ---
 

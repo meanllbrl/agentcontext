@@ -1,10 +1,12 @@
 ---
-id: "feat_LDQn2Bi8"
-status: "active"
-created: "2026-02-25"
-updated: "2026-02-25"
-released_version: null
-tags: ["backend", "architecture"]
+id: feat_LDQn2Bi8
+status: active
+created: '2026-02-25'
+updated: '2026-02-26'
+released_version: 0.1.0
+tags:
+  - backend
+  - architecture
 related_tasks: []
 ---
 

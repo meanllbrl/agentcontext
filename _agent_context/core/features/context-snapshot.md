@@ -1,10 +1,13 @@
 ---
-id: "feat_4NB3SlrK"
-status: "active"
-created: "2026-02-25"
-updated: "2026-02-25"
-released_version: null
-tags: ["architecture", "backend", "onboarding"]
+id: feat_4NB3SlrK
+status: active
+created: '2026-02-25'
+updated: '2026-02-26'
+released_version: 0.1.0
+tags:
+  - architecture
+  - backend
+  - onboarding
 related_tasks: []
 ---
 
