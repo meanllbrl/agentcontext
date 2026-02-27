@@ -1,17 +1,36 @@
 {
   "debt": 3,
-  "last_sleep": "2026-02-26",
-  "last_sleep_summary": "Consolidated Notion-style TaskDetailPanel redesign (marked@^15, body field, props-block CSS, ExpandableText) and tool_count debt scoring (scoreFromToolCount, Math.max logic). 336 tests passing.",
+  "last_sleep": "2026-02-27",
+  "last_sleep_summary": "Consolidated 8-phase neuroscience-inspired memory system: bookmarks (awake ripples), knowledge decay, consolidation rhythm, warm knowledge tier, contextual triggers, transcript distillation, sleep history, and system flow documentation. Updated soul, memory, sleep-consolidation PRD, and CHANGELOG.json. 384 tests (383 passing). 13 commands now registered.",
   "sleep_started_at": null,
+  "sessions_since_last_sleep": 1,
   "sessions": [
     {
-      "session_id": "f4976619-b43e-4f95-8742-7c3129f63411",
-      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/f4976619-b43e-4f95-8742-7c3129f63411.jsonl",
-      "stopped_at": "2026-02-26T22:25:41.735Z",
-      "last_assistant_message": "Done. Memory consolidated. Key updates:\n\n- **Memory file**: Added session entries for Notion-style TaskDetailPanel redesign and tool count debt scoring, plus technical decisions (`marked` choice, `tool_count` scoring)\n- **Features**: Updated web-dashboard and sleep-consolidation changelogs\n- **Task state**: Updated web-dashboard task description, 336 tests\n\nSleep debt should be cleared now.",
-      "change_count": 30,
-      "tool_count": 202,
+      "session_id": "e0fd20fe-5b26-4d5c-a588-2be816461a81",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/e0fd20fe-5b26-4d5c-a588-2be816461a81.jsonl",
+      "stopped_at": "2026-02-27T12:14:28.328Z",
+      "last_assistant_message": "Both files are updated. Here's a summary of what changed:\n\n**README.md:**\n- Mermaid diagram: added Bookmarks node, system flow in core, triggers in state, warm knowledge + contextual reminders in snapshot\n- Directory structure: added `6.system_flow.md`\n- Knowledge section: added `knowledge touch`, staleness/warm knowledge description\n- New Bookmarks section with salience levels\n- New Triggers section with prospective memory concept\n- Sleep section: added `sleep history`, `sleep start`, rhythm advisory mention\n- New Transcript section with `transcript distill` command\n- Acknowledgements: added Joo & Frank 2025 Science paper reference\n\n**DEEP-DIVE.md:**\n- Nav: added Neuroscience link\n- Stop Hook: dual-signal scoring (changes + tools), bookmark linking, rhythm counter\n- SessionStart Hook: expanded from 9 to 12 snapshot sections (bookmarks, contextual reminders, warm knowledge, staleness indicators, sleep history)\n- The flow: updated with bookmark linking, rhythm tracking, consolidation advisory signals\n- Sleep Cycle: bookmark-first processing, transcript distillation, history preservation, trigger creation, expanded from 6 to 8 steps, added consolidation triggers table\n- New \"Neuroscience-Inspired Memory\" section: brain mapping table, bookmarks, knowledge decay, warm knowledge, contextual triggers, transcript distillation\n- 7 new Design Tradeoffs rows (bookmarks, structural distillation, dual scoring, warm tier, triggers, rhythm)\n- What Comes Next: mentions neuroscience system as shipped",
+      "change_count": 71,
+      "tool_count": 191,
       "score": 3
+    }
+  ],
+  "bookmarks": [],
+  "triggers": [],
+  "knowledge_access": {
+    "project-origin-and-prd": {
+      "last_accessed": "2026-02-27",
+      "count": 1
+    }
+  },
+  "sleep_history": [
+    {
+      "date": "2026-02-27",
+      "summary": "Consolidated 8-phase neuroscience-inspired memory system: bookmarks (awake ripples), knowledge decay, consolidation rhythm, warm knowledge tier, contextual triggers, transcript distillation, sleep history, and system flow documentation. Updated soul, memory, sleep-consolidation PRD, and CHANGELOG.json. 384 tests (383 passing). 13 commands now registered.",
+      "debt_before": 6,
+      "debt_after": 0,
+      "sessions_processed": 2,
+      "bookmarks_processed": 0
     }
   ],
   "dashboard_changes": []

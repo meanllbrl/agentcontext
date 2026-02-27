@@ -1,0 +1,256 @@
+import { Command } from 'commander';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { ensureContextRoot } from '../../lib/context-path.js';
+import { readSleepState } from './sleep.js';
+import { error } from '../../lib/format.js';
+
+const MAX_TRANSCRIPT_BYTES = 50 * 1024 * 1024; // 50MB safety cap
+
+// Tool calls that represent noise (exploration, not decisions)
+const NOISE_TOOLS = new Set([
+  'Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch',
+  'ListMcpResourcesTool', 'ReadMcpResourceTool', 'ToolSearch',
+]);
+
+// Tool calls that represent meaningful changes
+const CHANGE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit']);
+
+interface TranscriptEntry {
+  type: string;
+  message?: {
+    role?: string;
+    content?: string | Array<{
+      type: string;
+      name?: string;
+      text?: string;
+      input?: Record<string, unknown>;
+      content?: string | Array<{ text?: string }>;
+    }>;
+  };
+  subagent?: {
+    result?: string;
+  };
+}
+
+interface DistilledSection {
+  userMessages: string[];
+  agentDecisions: string[];
+  codeChanges: string[];
+  errors: string[];
+  bookmarks: string[];
+}
+
+/**
+ * Parse a JSONL transcript file and extract high-signal content.
+ * Pure Node.js structural filtering, no AI.
+ */
+export function distillTranscript(transcriptPath: string): DistilledSection {
+  const result: DistilledSection = {
+    userMessages: [],
+    agentDecisions: [],
+    codeChanges: [],
+    errors: [],
+    bookmarks: [],
+  };
+
+  if (!existsSync(transcriptPath)) return result;
+
+  try {
+    const stat = statSync(transcriptPath);
+    if (stat.size === 0 || stat.size > MAX_TRANSCRIPT_BYTES) return result;
+
+    const content = readFileSync(transcriptPath, 'utf-8');
+    const lines = content.split('\n').filter(l => l.trim());
+
+    for (const line of lines) {
+      let entry: TranscriptEntry;
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue;
+      }
+
+      if (!entry.message) continue;
+      const msg = entry.message;
+
+      // User messages: always keep
+      if (msg.role === 'user' && typeof msg.content === 'string') {
+        const trimmed = msg.content.trim();
+        if (trimmed && trimmed.length > 0) {
+          const capped = trimmed.length > 500 ? trimmed.slice(0, 497) + '...' : trimmed;
+          result.userMessages.push(capped);
+        }
+        continue;
+      }
+
+      // Assistant messages
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          // Agent text responses (reasoning/conclusions)
+          if (block.type === 'text' && block.text) {
+            const text = block.text.trim();
+            if (text.length > 20) { // skip trivial responses
+              const capped = text.length > 300 ? text.slice(0, 297) + '...' : text;
+              result.agentDecisions.push(capped);
+            }
+          }
+
+          // Tool calls
+          if (block.type === 'tool_use' && block.name) {
+            const toolName = block.name;
+
+            // Bookmark calls
+            if (toolName === 'Bash' && block.input) {
+              const cmd = typeof block.input.command === 'string' ? block.input.command : '';
+              if (cmd.includes('agentcontext bookmark')) {
+                result.bookmarks.push(cmd);
+                continue;
+              }
+            }
+
+            // Write/Edit: record the change
+            if (CHANGE_TOOLS.has(toolName) && block.input) {
+              const filePath = typeof block.input.file_path === 'string' ? block.input.file_path : '';
+              if (toolName === 'Write') {
+                result.codeChanges.push(`WRITE ${filePath}`);
+              } else if (toolName === 'Edit') {
+                result.codeChanges.push(`EDIT ${filePath}`);
+              } else if (toolName === 'NotebookEdit') {
+                const nbPath = typeof block.input.notebook_path === 'string' ? block.input.notebook_path : '';
+                result.codeChanges.push(`NOTEBOOK_EDIT ${nbPath}`);
+              }
+              continue;
+            }
+
+            // Bash commands that modify files
+            if (toolName === 'Bash' && block.input) {
+              const cmd = typeof block.input.command === 'string' ? block.input.command : '';
+              // Detect modifying bash commands
+              if (/\b(npm install|npm i |yarn add|pnpm add|pip install|git |mkdir |rm |mv |cp |chmod |chown |sed |awk )/.test(cmd)) {
+                const capped = cmd.length > 200 ? cmd.slice(0, 197) + '...' : cmd;
+                result.codeChanges.push(`BASH ${capped}`);
+              }
+              continue;
+            }
+
+            // Skip noise tools entirely
+            if (NOISE_TOOLS.has(toolName)) continue;
+
+            // Task tool (subagent): only final answers matter
+            if (toolName === 'Task') continue; // subagent results handled separately
+          }
+        }
+        continue;
+      }
+
+      // Tool results: check for errors
+      if (msg.role === 'tool' && Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          if (block.type === 'tool_result') {
+            const text = typeof block.text === 'string' ? block.text : '';
+            if (/error|Error|ERROR|failed|Failed|FAILED|exception|Exception/.test(text)) {
+              const capped = text.length > 300 ? text.slice(0, 297) + '...' : text;
+              result.errors.push(capped);
+            }
+          }
+        }
+      }
+
+      // Subagent final answers
+      if (entry.subagent?.result) {
+        const subResult = entry.subagent.result.trim();
+        if (subResult.length > 20) {
+          const capped = subResult.length > 300 ? subResult.slice(0, 297) + '...' : subResult;
+          result.agentDecisions.push(`[subagent] ${capped}`);
+        }
+      }
+    }
+  } catch {
+    // Return whatever we have so far
+  }
+
+  return result;
+}
+
+/**
+ * Format a distilled transcript as markdown.
+ */
+export function formatDistilled(sessionId: string, distilled: DistilledSection): string {
+  const parts: string[] = [`## Session ${sessionId} -- Distilled Transcript\n`];
+
+  if (distilled.userMessages.length > 0) {
+    parts.push('### User Messages');
+    for (const m of distilled.userMessages) {
+      parts.push(`- "${m}"`);
+    }
+    parts.push('');
+  }
+
+  if (distilled.agentDecisions.length > 0) {
+    parts.push('### Agent Decisions & Reasoning');
+    for (const d of distilled.agentDecisions) {
+      parts.push(`- ${d}`);
+    }
+    parts.push('');
+  }
+
+  if (distilled.codeChanges.length > 0) {
+    parts.push('### Code Changes');
+    for (const c of distilled.codeChanges) {
+      parts.push(`- ${c}`);
+    }
+    parts.push('');
+  }
+
+  if (distilled.errors.length > 0) {
+    parts.push('### Errors & Issues');
+    for (const e of distilled.errors) {
+      parts.push(`- ${e}`);
+    }
+    parts.push('');
+  }
+
+  if (distilled.bookmarks.length > 0) {
+    parts.push('### Bookmarks');
+    for (const b of distilled.bookmarks) {
+      parts.push(`- ${b}`);
+    }
+    parts.push('');
+  }
+
+  return parts.join('\n');
+}
+
+export function registerTranscriptCommand(program: Command): void {
+  const transcript = program
+    .command('transcript')
+    .description('Process session transcripts');
+
+  transcript
+    .command('distill')
+    .argument('<session_id>', 'Session ID to distill')
+    .description('Extract high-signal content from a session transcript (pure structural filtering)')
+    .action((sessionId: string) => {
+      const root = ensureContextRoot();
+      const state = readSleepState(root);
+
+      const session = state.sessions.find(s => s.session_id === sessionId);
+      if (!session) {
+        error(`Session not found: ${sessionId}`);
+        return;
+      }
+
+      if (!session.transcript_path) {
+        error(`No transcript path for session: ${sessionId}`);
+        return;
+      }
+
+      if (!existsSync(session.transcript_path)) {
+        error(`Transcript file not found: ${session.transcript_path}`);
+        return;
+      }
+
+      const distilled = distillTranscript(session.transcript_path);
+      console.log(formatDistilled(sessionId, distilled));
+    });
+}

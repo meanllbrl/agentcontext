@@ -6,9 +6,48 @@ import { resolveContextRoot } from '../../lib/context-path.js';
 import { readFrontmatter } from '../../lib/frontmatter.js';
 import { readJsonArray } from '../../lib/json-file.js';
 import { readSection } from '../../lib/markdown.js';
-import { readSleepState } from './sleep.js';
+import { readSleepState, writeSleepState } from './sleep.js';
 import { buildKnowledgeIndex } from '../../lib/knowledge-index.js';
 import { buildCoreIndex } from '../../lib/core-index.js';
+
+/**
+ * Extract the first paragraph from markdown content.
+ * Skips headings, blank lines, and frontmatter blocks.
+ * Returns the first block of contiguous body text.
+ */
+export function extractFirstParagraph(content: string): string {
+  const lines = content.split('\n');
+  const paragraphLines: string[] = [];
+  let started = false;
+  let inFrontmatter = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    // Handle YAML frontmatter blocks (--- ... ---)
+    if (trimmed === '---') {
+      if (!started) {
+        inFrontmatter = !inFrontmatter;
+        continue;
+      }
+    }
+    if (inFrontmatter) continue;
+
+    if (!started) {
+      // Skip headings and blank lines
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      started = true;
+    }
+    if (started) {
+      if (!trimmed) break; // end of first paragraph
+      if (trimmed.startsWith('#')) break; // next heading
+      paragraphLines.push(trimmed);
+    }
+  }
+
+  const result = paragraphLines.join(' ');
+  return result.length > 300 ? result.slice(0, 297) + '...' : result;
+}
 
 /**
  * Build formatted lines for active (non-completed) tasks in state/*.md.
@@ -115,8 +154,64 @@ export function generateSnapshot(): string {
     parts.push('');
   }
 
-  // 6. Sleep State
+  // 5.5 Read sleep state (used by multiple sections below)
   const sleepState = readSleepState(root);
+
+  // 5.6 Bookmarks (awake ripples, tagged moments from previous sessions)
+  if (sleepState.bookmarks.length > 0) {
+    const sorted = [...sleepState.bookmarks].sort((a, b) => b.salience - a.salience);
+    parts.push('## Bookmarks\n');
+    const salienceLabels: Record<number, string> = { 1: '*', 2: '**', 3: '***' };
+    for (const b of sorted) {
+      parts.push(`- ${salienceLabels[b.salience] || '*'} ${b.message}`);
+    }
+    parts.push('');
+  }
+
+  // 5.7 Contextual Reminders (matching triggers for active tasks)
+  if (sleepState.triggers.length > 0) {
+    // Gather active task names and tags for matching
+    const taskNames: string[] = [];
+    const taskTags: string[] = [];
+    const stateDir = join(root, 'state');
+    if (existsSync(stateDir)) {
+      const taskFiles = fg.sync('*.md', { cwd: stateDir, absolute: true });
+      for (const file of taskFiles) {
+        try {
+          const { data } = readFrontmatter(file);
+          if (String(data.status ?? '') === 'completed') continue;
+          taskNames.push(basename(file, '.md').toLowerCase());
+          if (Array.isArray(data.tags)) {
+            taskTags.push(...data.tags.map((t: string) => String(t).toLowerCase()));
+          }
+        } catch { /* skip */ }
+      }
+    }
+    // Also check recent bookmark messages
+    const recentBookmarkText = sleepState.bookmarks.map(b => b.message.toLowerCase()).join(' ');
+
+    const matchContext = [...taskNames, ...taskTags].join(' ') + ' ' + recentBookmarkText;
+
+    const matchedTriggers = sleepState.triggers.filter(t => {
+      if (t.fired_count >= t.max_fires) return false;
+      const keywords = t.when.toLowerCase().split(/[\s,]+/);
+      return keywords.some(kw => matchContext.includes(kw));
+    });
+
+    if (matchedTriggers.length > 0) {
+      parts.push('## Contextual Reminders\n');
+      for (const t of matchedTriggers) {
+        parts.push(`- ${t.remind}`);
+        // Increment fired_count
+        t.fired_count++;
+      }
+      parts.push('');
+      // Persist trigger fired_count updates
+      writeSleepState(root, sleepState);
+    }
+  }
+
+  // 6. Sleep State
   if (sleepState.debt > 0 || sleepState.last_sleep || sleepState.sessions.length > 0 || sleepState.sleep_started_at) {
     const level = sleepState.debt <= 3 ? 'Alert'
       : sleepState.debt <= 6 ? 'Drowsy'
@@ -124,6 +219,9 @@ export function generateSnapshot(): string {
       : 'Must Sleep';
     parts.push('## Sleep State\n');
     parts.push(`- Debt: ${sleepState.debt} (${level})`);
+    if (sleepState.sessions_since_last_sleep > 0) {
+      parts.push(`- Sessions since last sleep: ${sleepState.sessions_since_last_sleep}`);
+    }
     if (sleepState.sleep_started_at) {
       parts.push(`- Consolidation in progress (started: ${sleepState.sleep_started_at})`);
     }
@@ -151,6 +249,15 @@ export function generateSnapshot(): string {
             : s.last_assistant_message;
           parts.push(`    ${preview}`);
         }
+      }
+    }
+    // Sleep history (last 3 entries)
+    if (sleepState.sleep_history.length > 0) {
+      parts.push(`- Recent consolidation history:`);
+      for (const h of sleepState.sleep_history.slice(0, 3)) {
+        parts.push(`  - ${h.date}: debt ${h.debt_before} -> ${h.debt_after}, ${h.sessions_processed} session(s), ${h.bookmarks_processed} bookmark(s)`);
+        const summary = h.summary.length > 120 ? h.summary.slice(0, 117) + '...' : h.summary;
+        parts.push(`    ${summary}`);
       }
     }
     parts.push('');
@@ -282,18 +389,72 @@ export function generateSnapshot(): string {
   if (knowledgeEntries.length > 0) {
     const indexLines: string[] = [];
     const pinnedEntries: typeof knowledgeEntries = [];
+    const warmEntries: typeof knowledgeEntries = [];
+
+    // Gather active task tags for warm knowledge matching
+    const activeTaskTags: string[] = [];
+    const stDir = join(root, 'state');
+    if (existsSync(stDir)) {
+      const tFiles = fg.sync('*.md', { cwd: stDir, absolute: true });
+      for (const file of tFiles) {
+        try {
+          const { data } = readFrontmatter(file);
+          if (String(data.status ?? '') === 'completed') continue;
+          if (Array.isArray(data.tags)) {
+            activeTaskTags.push(...data.tags.map((t: string) => String(t).toLowerCase()));
+          }
+        } catch { /* skip */ }
+      }
+    }
 
     for (const entry of knowledgeEntries) {
       const tagsStr = entry.tags.length > 0 ? ` [${entry.tags.join(', ')}]` : '';
-      indexLines.push(`- **${entry.slug}** (_agent_context/knowledge/${entry.slug}.md): ${entry.description}${tagsStr}`);
+      // Staleness indicator
+      const accessRecord = sleepState.knowledge_access[entry.slug];
+      let stalenessNote = '';
+      if (accessRecord) {
+        const daysSince = Math.floor((Date.now() - new Date(accessRecord.last_accessed).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSince > 30) {
+          stalenessNote = ' (stale: not accessed in 30+ days)';
+        }
+      } else if (entry.date) {
+        const daysSinceCreation = Math.floor((Date.now() - new Date(entry.date).getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceCreation > 30) {
+          stalenessNote = ' (stale: never accessed)';
+        }
+      }
+
+      indexLines.push(`- **${entry.slug}** (_agent_context/knowledge/${entry.slug}.md): ${entry.description}${tagsStr}${stalenessNote}`);
       if (entry.pinned) {
         pinnedEntries.push(entry);
+      } else if (!stalenessNote) {
+        // Warm candidate: recently accessed or task-relevant
+        const isRecentlyAccessed = accessRecord && accessRecord.count > 0 &&
+          (Date.now() - new Date(accessRecord.last_accessed).getTime()) < 7 * 24 * 60 * 60 * 1000; // 7 days
+        const isTaskRelevant = entry.tags.some(t => activeTaskTags.includes(t.toLowerCase()));
+        if (isRecentlyAccessed || isTaskRelevant) {
+          warmEntries.push(entry);
+        }
       }
     }
 
     parts.push('## Knowledge Index\n');
     parts.push(indexLines.join('\n'));
     parts.push('');
+
+    // 9.5 Warm Knowledge (recently relevant, first paragraph only)
+    if (warmEntries.length > 0) {
+      parts.push('## Warm Knowledge (Recently Relevant)\n');
+      for (const entry of warmEntries) {
+        parts.push(`### ${entry.name}`);
+        const firstParagraph = extractFirstParagraph(entry.content);
+        if (firstParagraph) {
+          parts.push(firstParagraph);
+        }
+        parts.push(`-> Read full: _agent_context/knowledge/${entry.slug}.md`);
+        parts.push('');
+      }
+    }
 
     // 10. Pinned Knowledge (full content, only if any)
     if (pinnedEntries.length > 0) {

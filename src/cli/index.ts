@@ -11,6 +11,9 @@ import { registerSleepCommand } from './commands/sleep.js';
 import { registerHookCommand } from './commands/hook.js';
 import { registerDoctorCommand } from './commands/doctor.js';
 import { registerDashboardCommand } from './commands/dashboard.js';
+import { registerBookmarkCommand } from './commands/bookmark.js';
+import { registerTriggerCommand } from './commands/trigger.js';
+import { registerTranscriptCommand } from './commands/transcript.js';
 import { startInteractive } from './interactive.js';
 import { renderBanner } from '../lib/pixel-banner.js';
 
@@ -43,11 +46,14 @@ ${chalk.bold('Content')}
   ${chalk.magentaBright('features')}          Create features and insert into sections
   ${chalk.magentaBright('knowledge')}         Create and index knowledge files
   ${chalk.magentaBright('tasks')}             Create tasks, log progress, and mark complete
+  ${chalk.magentaBright('bookmark')}          Tag important moments for consolidation
+  ${chalk.magentaBright('trigger')}           Manage contextual reminders (prospective memory)
 
 ${chalk.bold('System')}
   ${chalk.magentaBright('snapshot')}          Output context snapshot (used by SessionStart hook)
   ${chalk.magentaBright('sleep')}             Track sleep debt and consolidation state
   ${chalk.magentaBright('hook')}              Hook handlers (stop, session-start, subagent-start) for Claude Code
+  ${chalk.magentaBright('transcript')}        Process session transcripts
   ${chalk.magentaBright('doctor')}            Validate _agent_context/ structure and report issues
 
 ${chalk.bold('Dashboard')}
@@ -81,6 +87,9 @@ export function createProgram(): Command {
   registerHookCommand(program);
   registerDoctorCommand(program);
   registerDashboardCommand(program);
+  registerBookmarkCommand(program);
+  registerTriggerCommand(program);
+  registerTranscriptCommand(program);
 
   return program;
 }

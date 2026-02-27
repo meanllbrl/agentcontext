@@ -11,6 +11,15 @@ function makeTmpDir(): string {
   return dir;
 }
 
+/** New fields added by neuroscience update, always present in defaults */
+const NEW_DEFAULTS = {
+  sessions_since_last_sleep: 0,
+  bookmarks: [],
+  triggers: [],
+  knowledge_access: {},
+  sleep_history: [],
+};
+
 describe('readSleepState', () => {
   let tmpDir: string;
 
@@ -32,6 +41,7 @@ describe('readSleepState', () => {
       sleep_started_at: null,
       sessions: [],
       dashboard_changes: [],
+      ...NEW_DEFAULTS,
     });
   });
 
@@ -61,7 +71,7 @@ describe('readSleepState', () => {
     };
     writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(persisted, null, 2));
     const state = readSleepState(tmpDir);
-    expect(state).toEqual({ ...persisted, sleep_started_at: null, dashboard_changes: [] });
+    expect(state).toEqual({ ...persisted, sleep_started_at: null, dashboard_changes: [], ...NEW_DEFAULTS });
   });
 
   it('returns default state when file is malformed JSON', () => {
@@ -74,6 +84,7 @@ describe('readSleepState', () => {
       sleep_started_at: null,
       sessions: [],
       dashboard_changes: [],
+      ...NEW_DEFAULTS,
     });
   });
 
@@ -87,6 +98,7 @@ describe('readSleepState', () => {
       sleep_started_at: null,
       sessions: [],
       dashboard_changes: [],
+      ...NEW_DEFAULTS,
     });
   });
 
@@ -99,11 +111,11 @@ describe('readSleepState', () => {
     };
     writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(minimal, null, 2));
     const state = readSleepState(tmpDir);
-    expect(state).toEqual({ ...minimal, sleep_started_at: null, dashboard_changes: [] });
+    expect(state).toEqual({ ...minimal, sleep_started_at: null, dashboard_changes: [], ...NEW_DEFAULTS });
   });
 
   it('reads state after consolidation (debt 0 with last_sleep set)', () => {
-    const postSleep: SleepState = {
+    const postSleep = {
       debt: 0,
       last_sleep: '2026-02-25',
       last_sleep_summary: 'Consolidated everything',
@@ -169,5 +181,50 @@ describe('readSleepState', () => {
     writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(corrupted, null, 2));
     const state = readSleepState(tmpDir);
     expect(state.sessions).toEqual([]);
+  });
+
+  // New field backward compat tests
+  it('returns default new fields when file lacks them', () => {
+    const oldState = {
+      debt: 2,
+      last_sleep: null,
+      last_sleep_summary: null,
+      sleep_started_at: null,
+      sessions: [],
+      dashboard_changes: [],
+    };
+    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(oldState, null, 2));
+    const state = readSleepState(tmpDir);
+    expect(state.bookmarks).toEqual([]);
+    expect(state.triggers).toEqual([]);
+    expect(state.knowledge_access).toEqual({});
+    expect(state.sleep_history).toEqual([]);
+    expect(state.sessions_since_last_sleep).toBe(0);
+  });
+
+  it('reads persisted bookmarks and triggers', () => {
+    const persisted = {
+      debt: 0,
+      sessions: [],
+      bookmarks: [
+        { id: 'bm_1', message: 'test', salience: 2, created_at: '2026-02-27T10:00:00Z', session_id: null },
+      ],
+      triggers: [
+        { id: 'trg_1', when: 'auth', remind: 'check rate limits', source: null, created_at: '2026-02-27', fired_count: 0, max_fires: 3 },
+      ],
+      knowledge_access: { 'jwt-auth': { last_accessed: '2026-02-27', count: 5 } },
+      sleep_history: [
+        { date: '2026-02-26', summary: 'test', debt_before: 5, debt_after: 0, sessions_processed: 3, bookmarks_processed: 2 },
+      ],
+    };
+    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(persisted, null, 2));
+    const state = readSleepState(tmpDir);
+    expect(state.bookmarks).toHaveLength(1);
+    expect(state.bookmarks[0].message).toBe('test');
+    expect(state.triggers).toHaveLength(1);
+    expect(state.triggers[0].when).toBe('auth');
+    expect(state.knowledge_access['jwt-auth'].count).toBe(5);
+    expect(state.sleep_history).toHaveLength(1);
+    expect(state.sleep_history[0].debt_before).toBe(5);
   });
 });

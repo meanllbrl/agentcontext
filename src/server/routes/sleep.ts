@@ -14,8 +14,7 @@ export async function handleSleepGet(
   contextRoot: string,
 ): Promise<void> {
   const state = readSleepState(contextRoot);
-  const dashboardChanges = (state as Record<string, unknown>).dashboard_changes ?? [];
-  sendJson(res, 200, { ...state, dashboard_changes: dashboardChanges });
+  sendJson(res, 200, state);
 }
 
 /**
@@ -56,6 +55,5 @@ export async function handleSleepUpdate(
   }
 
   const updatedState = readSleepState(contextRoot);
-  const dashboardChanges = (updatedState as Record<string, unknown>).dashboard_changes ?? [];
-  sendJson(res, 200, { ...updatedState, dashboard_changes: dashboardChanges });
+  sendJson(res, 200, updatedState);
 }

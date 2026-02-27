@@ -103,7 +103,7 @@ export function recordDashboardChange(
   change: Omit<DashboardChange, 'timestamp'>,
 ): void {
   const state = readSleepState(contextRoot);
-  const changes: DashboardChange[] = (state as Record<string, unknown>).dashboard_changes as DashboardChange[] ?? [];
+  const changes: DashboardChange[] = state.dashboard_changes ?? [];
 
   const timestamped: DashboardChange = {
     ...change,
@@ -116,6 +116,6 @@ export function recordDashboardChange(
     changes.unshift(timestamped);
   }
 
-  (state as Record<string, unknown>).dashboard_changes = changes;
+  state.dashboard_changes = changes;
   writeSleepState(contextRoot, state);
 }

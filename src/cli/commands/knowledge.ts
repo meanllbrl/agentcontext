@@ -8,6 +8,7 @@ import { writeFrontmatter } from '../../lib/frontmatter.js';
 import { generateId, slugify, today } from '../../lib/id.js';
 import { success, error, info, header } from '../../lib/format.js';
 import { buildKnowledgeIndex, STANDARD_TAGS } from '../../lib/knowledge-index.js';
+import { readSleepState, writeSleepState } from './sleep.js';
 
 function getKnowledgeDir(): string {
   const root = ensureContextRoot();
@@ -122,5 +123,33 @@ export function registerKnowledgeCommand(program: Command): void {
           console.log(`  ${chalk.magentaBright(tag)}`);
         }
       }
+    });
+
+  // Touch (access tracking)
+  knowledge
+    .command('touch')
+    .argument('<slug>', 'Knowledge file slug')
+    .description('Record access to a knowledge file (for decay tracking)')
+    .action((slug: string) => {
+      const root = ensureContextRoot();
+      const knowledgePath = join(root, 'knowledge', `${slug}.md`);
+
+      if (!existsSync(knowledgePath)) {
+        error(`Knowledge file not found: ${slug}.md`);
+        return;
+      }
+
+      const state = readSleepState(root);
+      const now = today();
+
+      if (!state.knowledge_access[slug]) {
+        state.knowledge_access[slug] = { last_accessed: now, count: 0 };
+      }
+
+      state.knowledge_access[slug].last_accessed = now;
+      state.knowledge_access[slug].count++;
+
+      writeSleepState(root, state);
+      success(`Touched: ${slug} (access count: ${state.knowledge_access[slug].count})`);
     });
 }

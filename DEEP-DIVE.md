@@ -15,6 +15,7 @@
   <a href="#the-architecture">Architecture</a> &nbsp;&middot;&nbsp;
   <a href="#the-hook-mechanism">Hooks</a> &nbsp;&middot;&nbsp;
   <a href="#the-sleep-cycle">Sleep Cycle</a> &nbsp;&middot;&nbsp;
+  <a href="#neuroscience-inspired-memory">Neuroscience</a> &nbsp;&middot;&nbsp;
   <a href="#the-dashboard">Dashboard</a> &nbsp;&middot;&nbsp;
   <a href="#cli-design">CLI</a> &nbsp;&middot;&nbsp;
   <a href="#design-tradeoffs">Tradeoffs</a>
@@ -133,33 +134,41 @@ The core insight: **don't make the agent search for its own context.**
 
 ### Stop Hook
 
-Fires when a session ends. Reads the session ID and transcript path from Claude Code, then analyzes the transcript for file changes by counting Write/Edit tool uses. Scores sleep debt based on volume:
+Fires when a session ends. Reads the session ID and transcript path from Claude Code, then analyzes the transcript in two ways: counting Write/Edit tool uses (changes) and counting all tool calls (tools). Scores sleep debt based on the higher signal:
 
-| Changes | Debt added |
-|---------|-----------|
-| 1-3 | +1 |
-| 4-8 | +2 |
-| 9+ | +3 |
+| Signal | 1-3 / 1-15 | 4-8 / 16-40 | 9+ / 41+ |
+|--------|------------|-------------|----------|
+| Changes (Write/Edit) | +1 | +2 | +3 |
+| Tools (all calls) | +1 | +2 | +3 |
 
-Saves the full session record to `.sleep.json`: session ID, transcript path, timestamp, change count, debt score, and the agent's last message (what it accomplished). Each concurrent session gets its own entry.
+The final score is `max(changeScore, toolScore)`. This ensures Bash-heavy sessions or deep research sessions that make no file writes still accumulate proper debt.
+
+Beyond scoring, the stop hook also:
+- **Links bookmarks to the session.** Any bookmarks created during the session that don't have a `session_id` get linked.
+- **Increments the rhythm counter.** `sessions_since_last_sleep` tracks how many sessions have passed since the last consolidation.
+
+Saves the full session record to `.sleep.json`: session ID, transcript path, timestamp, change count, tool count, debt score, and the agent's last message (what it accomplished). Each concurrent session gets its own entry.
 
 ### SessionStart Hook
 
 Fires before the agent sees your first message. Compiles and injects a full context snapshot:
 
 1. **Soul + User + Memory** loaded in full (the agent's identity, your preferences, accumulated decisions)
-2. **Extended core files** surfaced as summaries with paths (style guide, tech stack, data structures)
+2. **Extended core files** surfaced as summaries with paths (style guide, tech stack, data structures, system flow)
 3. **Active tasks** with status, priority, and last update timestamp
-4. **Sleep state** with debt level, last sleep timestamp, and per-session history (what was accomplished, when, how many changes)
-5. **Recent changelog** (last 3 entries from CHANGELOG.json)
-6. **Latest release** with version, date, summary, and included task/feature counts
-7. **Features** with the Why, related tasks, and latest changelog entry per feature
-8. **Knowledge index** with slug, description, and tags for every knowledge file
-9. **Pinned knowledge** loaded in full for files marked `pinned: true`
+4. **Bookmarks** sorted by salience (critical first), showing tagged moments from previous sessions
+5. **Contextual reminders** from triggers matching active task names, tags, or bookmark text
+6. **Sleep state** with debt level, sessions since last sleep, consolidation history, and per-session records
+7. **Recent changelog** (last 3 entries from CHANGELOG.json)
+8. **Latest release** with version, date, summary, and included task/feature counts
+9. **Features** with the Why, related tasks, and latest changelog entry per feature
+10. **Knowledge index** with slug, description, tags, and staleness indicators (30+ days without access)
+11. **Warm knowledge** for recently accessed or task-relevant files (first paragraph preview)
+12. **Pinned knowledge** loaded in full for files marked `pinned: true`
 
 Every file path is included in the output. If the agent needs more detail on something, it knows exactly where to look. One targeted read instead of a search spiral.
 
-When sleep debt is high, the hook also injects graduated consolidation directives: a suggestion at debt 7-9, a strong recommendation at debt 10+. The agent sees these before your first message and can plan accordingly.
+Consolidation directives fire based on multiple signals: debt 7-9 (suggestion), debt 10+ (strong recommendation), critical bookmarks (immediate advisory regardless of debt), and 5+ sessions since last sleep (rhythm check). The agent sees these before your first message and can plan accordingly.
 
 ### SubagentStart Hook
 
@@ -173,7 +182,9 @@ This is intentionally lighter than the full snapshot. Sub-agents are task-focuse
 Session ends
   → Stop hook fires                                  runs in shell
   → Captures last message + transcript               what the agent accomplished
-  → Analyzes file changes, scores debt               no deferred analysis
+  → Analyzes changes + tools, scores debt            dual-signal scoring
+  → Links bookmarks to session                       awake ripple attachment
+  → Increments sessions_since_last_sleep             rhythm tracking
   → Session record saved to .sleep.json              full context preserved
 
 Between sessions
@@ -183,10 +194,14 @@ Between sessions
 Next session starts
   → SessionStart hook fires                          runs in shell
   → Snapshot injected: soul, user, memory,           zero tool calls
-    core summaries, tasks, sleep state,
-    session history, dashboard changes,
-    latest release, features, changelog,
-    knowledge index, pinned docs
+    core summaries, tasks, bookmarks,
+    contextual reminders, sleep state,
+    session history, sleep history,
+    dashboard changes, latest release,
+    features, changelog, knowledge index,
+    warm knowledge, pinned docs
+  → Consolidation advisory if:                       critical bookmarks, debt >= 7,
+    debt >= 10, or 5+ sessions                       or rhythm check
   → You ask your question.
   → Agent is already at full capacity.
 
@@ -204,12 +219,14 @@ Agents face the same challenge. Over multiple sessions, your agent accumulates k
 
 `agentcontext` ships with a **RemSleep** agent that handles this consolidation:
 
-1. **Debt accumulates automatically.** The Stop hook scores each session based on file changes. No manual tracking needed. The score reflects how much new knowledge was generated.
-2. **Every session is preserved.** The sleep state holds a sessions array (newest first). Each record has the session ID, timestamp, change count, debt score, and the full text of the agent's last message. The RemSleep agent reads these to understand exactly what happened across sessions without parsing raw transcripts.
-3. **The agent responds with graduated awareness.** As debt rises, the agent's behavior shifts from normal work to actively recommending consolidation (see table below).
-4. **RemSleep consolidates.** When activated (automatically at Must Sleep or manually by the user), the RemSleep agent reviews all session records, promotes important learnings from memory to core files, extracts deep knowledge into tagged docs, updates summaries, cleans stale entries, archives completed tasks, and keeps core files within reasonable size limits.
-5. **Debt resets.** After consolidation, debt goes to zero, sessions are cleared, the timestamp is recorded, and the cycle starts fresh.
-6. **Next session**, the agent wakes up knowing its debt level, when it last consolidated, and what the previous session accomplished.
+1. **Debt accumulates automatically.** The Stop hook scores each session based on both file changes and total tool calls. No manual tracking needed. The score reflects how much new knowledge was generated.
+2. **Bookmarks prioritize what matters.** During active work, the agent tags important moments (decisions, constraints, bugs) with salience levels. The RemSleep agent reads bookmarks first, ordered by salience, so critical decisions are never lost in a pile of routine session summaries.
+3. **Transcript distillation provides depth on demand.** For sessions with critical bookmarks or unclear summaries, the sleep agent calls `transcript distill` to get a structurally filtered view: user messages, agent decisions, code changes, errors. No noise from Read results or Glob output.
+4. **The agent responds with graduated awareness.** Consolidation triggers fire based on multiple signals: debt level, critical bookmarks, and session rhythm (see table below).
+5. **RemSleep consolidates.** Reviews bookmarks first, then session records, promotes learnings to core files, extracts knowledge, creates contextual triggers for future sessions, updates summaries, cleans stale entries using knowledge access data, and keeps core files within size limits.
+6. **History is preserved.** Each consolidation cycle writes a history entry: date, summary, debt before/after, sessions and bookmarks processed. The snapshot shows the last 3 entries so the agent knows what was recently consolidated.
+7. **Debt resets.** After consolidation, debt recalculates (only post-epoch sessions count), bookmarks and sessions from before the epoch are cleared, triggers past their fire limit expire, the rhythm counter resets, and the cycle starts fresh.
+8. **Next session**, the agent wakes up knowing its debt level, consolidation history, any remaining bookmarks, active triggers, and what the previous session accomplished.
 
 ### Debt levels
 
@@ -220,9 +237,65 @@ Agents face the same challenge. Over multiple sessions, your agent accumulates k
 | 7-9 | Sleepy | Actively suggests sleeping, snapshot includes a reminder |
 | 10+ | Must Sleep | Snapshot strongly recommends consolidation, defers to user if there is urgent work |
 
+### Additional consolidation triggers
+
+| Signal | Advisory |
+|--------|----------|
+| Critical (salience 3) bookmark exists | Immediate advisory regardless of debt level |
+| 5+ sessions since last sleep | Rhythm check advisory |
+
 Each cycle, the agent's context gets cleaner and more structured. Not because the agent "learns" in a human sense, but because consolidation enforces discipline: promote what matters, archive what is done, delete what is stale. Over time, the context files become a progressively better representation of your project's state.
 
 Because sleep debt is tracked as real state (persisted in `.sleep.json`, surfaced in the snapshot, enforced by graduated directives), the system actually drives consolidation instead of hoping the agent remembers to do it. I tested the alternative: when sleep tracking lived in prompt instructions rather than hooks, the agent forgot to consolidate most of the time. **Context pressure pushes out behavioral instructions. Hooks don't have that problem.**
+
+## Neuroscience-Inspired Memory
+
+The memory system draws from a 2025 Science paper (Joo & Frank) that revealed how the hippocampus actually selects which memories to consolidate. The brain does not replay everything equally during sleep. During the day, the hippocampus fires "awake sharp-wave ripples" that bookmark important moments. During sleep, bookmarked memories compete for consolidation, with only the strongest patterns winning transfer to the neocortex.
+
+The key insight: **memory selection and memory consolidation are separate processes.** Selection (tagging) happens during active work. Consolidation (storage) happens during sleep. Getting consolidation right is not enough if the system has no way to distinguish a critical architectural decision from a routine file read.
+
+### How the mapping works
+
+| Brain Mechanism | agentcontext Feature |
+|---|---|
+| Hippocampus (working memory) | `state/` files (active tasks, sleep state) |
+| Neocortex (long-term storage) | `core/` files (soul, user, memory), `knowledge/` files |
+| Awake sharp-wave ripples | `bookmark add` (tag moments for consolidation) |
+| Neural competition (strongest win) | Salience scoring (critical bookmarks trigger consolidation) |
+| Memory decay (unused synapses weaken) | Knowledge access tracking (staleness indicators at 30+ days) |
+| Sleep rhythm (every night) | Session count rhythm (advisory every 5 sessions) |
+| Spreading activation | Warm knowledge tier (recently accessed files get first-paragraph preview) |
+| Prospective memory ("do X when Y") | Contextual triggers (remind about X when task Y is active) |
+| Hippocampal filtering | Transcript distillation (structural filter keeps signal, discards noise) |
+| Sleep consolidation | RemSleep agent (compressed replay into core files) |
+| Inhibitory neurons | Anti-bloat pass (200-line limit, prune stale knowledge) |
+| Synaptic plasticity | LIFO ordering (recent info surfaces first) |
+
+### Bookmarks (awake ripples)
+
+During active work, the agent calls `bookmark add "<message>" -s <salience>` to tag important moments. Three salience levels:
+
+- **1 (notable)**: Useful pattern discovered, minor decision
+- **2 (significant)**: Architectural decision, user preference, meaningful bug
+- **3 (critical)**: Breaking change, fundamental constraint, non-negotiable rule
+
+The SKILL.md teaches the agent when to auto-bookmark. The stop hook links bookmarks to their session. The sleep agent processes bookmarks first, in salience order. Critical bookmarks become must-consolidate items.
+
+### Knowledge decay
+
+Knowledge files accumulate but not all remain relevant. The system tracks access via `knowledge touch <slug>`, recording when each file was last read and how often. Files not accessed in 30+ days get staleness indicators in the snapshot. The sleep agent uses access data during its anti-bloat pass: stale files are candidates for archival, frequently accessed files for pinning.
+
+### Warm knowledge
+
+Between the knowledge index (just titles and tags) and pinned knowledge (full content), there is a warm tier. Files accessed in the last 7 days or with tags matching active tasks get their first paragraph loaded into the snapshot. The agent often has just enough context to decide whether to read the full file, without burning tokens loading everything.
+
+### Contextual triggers
+
+The sleep agent creates triggers when it spots context-dependent decisions during consolidation. A trigger stores a "when" keyword and a "remind" message. During snapshot generation, triggers are matched against active task names, tags, and bookmark text. Matching triggers surface as contextual reminders at the top of the snapshot. Triggers auto-expire after a configurable number of fires (default 3) to prevent noise.
+
+### Transcript distillation
+
+Raw JSONL transcripts can be tens of thousands of lines. The `transcript distill` command applies structural filtering (pure Node.js, no AI): keeps user messages, agent reasoning, Write/Edit calls, modifying Bash commands, bookmark calls, and errors. Discards Read results, Glob output, tool metadata, and subagent internals. The sleep agent calls this selectively for sessions that need deep analysis.
 
 ## The Dashboard
 
@@ -306,6 +379,12 @@ Every design choice was deliberate. Here is what I chose, what I chose it over, 
 | **Native Node HTTP server** | Express, Fastify | Zero new runtime deps for the dashboard server. Routes wrap existing `src/lib/` utilities. |
 | **SVG bezier curves for ER diagrams** | D3, React Flow | Graph libraries are overkill for a static schema view. SVG paths with cubic bezier and arrowheads over CSS grid. |
 | **Field-level change tracking** | "Entity changed" records | The agent needs to know *what* changed, not just *that* something changed. Net-change detection keeps the list clean. |
+| **Bookmarks over equal processing** | Process all sessions the same | Without salience tagging, the sleep agent has no way to distinguish a critical constraint from a routine fix. Bookmarks give it a priority signal. |
+| **Structural distillation** | AI-based summarization | Pure Node.js JSONL filtering is instant, deterministic, and free. Tool name pattern matching is sufficient to separate signal from noise. |
+| **Dual-signal debt scoring** | Change count only | Bash-heavy sessions or deep research with no file writes were invisible. `max(changeScore, toolScore)` ensures all meaningful work registers. |
+| **Warm knowledge tier** | Binary pinned/indexed | A file you read yesterday should not be as cold as one from 6 months ago. First-paragraph previews give the agent enough context to decide without loading everything. |
+| **Triggers over memory scanning** | Agent re-reads memory.md | Prospective memory ("do X when Y") is a stored intention, not a recall task. Triggers surface automatically when the right context appears. |
+| **Session rhythm advisory** | Crisis-driven consolidation only | Regular small consolidations (every 5 sessions) keep context fresh. Waiting for debt 10+ means a massive catch-up job with reduced quality. |
 
 ---
 
@@ -313,7 +392,7 @@ Every design choice was deliberate. Here is what I chose, what I chose it over, 
 
 Right now, `agentcontext` supports Claude Code. The hook system, the skill format, and the agent integration are all built around Claude's tool ecosystem. But the core idea (structured files, pre-loaded context, consolidation cycles) is not tied to any one agent. The architecture is designed so that other agents (Gemini CLI, Copilot, custom agents) can plug into the same `_agent_context/` directory with their own integration layer.
 
-The dashboard is built and shipping with the package. Remaining polish includes accessibility audit, responsive layout refinements, i18n token extraction for future localization, and bundle size optimization.
+The neuroscience-inspired memory system (bookmarks, decay tracking, warm knowledge, triggers, transcript distillation) shipped in v0.1.x. The dashboard is built and shipping with the package. Remaining polish includes accessibility audit, responsive layout refinements, i18n token extraction for future localization, and bundle size optimization.
 
 The long-term vision: your project's context lives in your repo, structured and version-controlled, and any agent you choose to work with can pick it up. **The human stays in the loop. The context stays portable.** The agent gets better every session because the system enforces the discipline that makes that possible.
 

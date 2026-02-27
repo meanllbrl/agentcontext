@@ -19,6 +19,38 @@ export interface SessionRecord {
   score: number | null;
 }
 
+export interface Bookmark {
+  id: string;
+  message: string;
+  salience: 1 | 2 | 3;
+  created_at: string;
+  session_id: string | null;
+}
+
+export interface Trigger {
+  id: string;
+  when: string;
+  remind: string;
+  source: string | null;
+  created_at: string;
+  fired_count: number;
+  max_fires: number;
+}
+
+export interface KnowledgeAccessRecord {
+  last_accessed: string;
+  count: number;
+}
+
+export interface SleepHistoryEntry {
+  date: string;
+  summary: string;
+  debt_before: number;
+  debt_after: number;
+  sessions_processed: number;
+  bookmarks_processed: number;
+}
+
 export interface FieldChange {
   field: string;
   from: string | number | boolean | string[] | null;
@@ -40,7 +72,12 @@ export interface SleepState {
   last_sleep: string | null;
   last_sleep_summary: string | null;
   sleep_started_at: string | null;
+  sessions_since_last_sleep: number;
   sessions: SessionRecord[];
+  bookmarks: Bookmark[];
+  triggers: Trigger[];
+  knowledge_access: Record<string, KnowledgeAccessRecord>;
+  sleep_history: SleepHistoryEntry[];
   dashboard_changes: DashboardChange[];
 }
 
@@ -49,7 +86,12 @@ const DEFAULT_SLEEP_STATE: SleepState = {
   last_sleep: null,
   last_sleep_summary: null,
   sleep_started_at: null,
+  sessions_since_last_sleep: 0,
   sessions: [],
+  bookmarks: [],
+  triggers: [],
+  knowledge_access: {},
+  sleep_history: [],
   dashboard_changes: [],
 };
 
@@ -63,21 +105,44 @@ function getSleepPath(root: string): string {
  * Read sleep state from disk. Returns defaults if file is missing or malformed.
  * Exported for use by snapshot and hook.
  */
+/** Create a fresh default state with no shared references */
+function freshDefaults(): SleepState {
+  return {
+    debt: 0,
+    last_sleep: null,
+    last_sleep_summary: null,
+    sleep_started_at: null,
+    sessions_since_last_sleep: 0,
+    sessions: [],
+    bookmarks: [],
+    triggers: [],
+    knowledge_access: {},
+    sleep_history: [],
+    dashboard_changes: [],
+  };
+}
+
 export function readSleepState(root: string): SleepState {
   const filePath = getSleepPath(root);
   if (!existsSync(filePath)) {
-    return { ...DEFAULT_SLEEP_STATE, sessions: [] };
+    return freshDefaults();
   }
   try {
     const parsed = readJsonObject<Partial<SleepState>>(filePath);
     return {
-      ...DEFAULT_SLEEP_STATE,
+      ...freshDefaults(),
       ...parsed,
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      bookmarks: Array.isArray(parsed.bookmarks) ? parsed.bookmarks : [],
+      triggers: Array.isArray(parsed.triggers) ? parsed.triggers : [],
+      knowledge_access: (parsed.knowledge_access && typeof parsed.knowledge_access === 'object' && !Array.isArray(parsed.knowledge_access))
+        ? parsed.knowledge_access as Record<string, KnowledgeAccessRecord>
+        : {},
+      sleep_history: Array.isArray(parsed.sleep_history) ? parsed.sleep_history : [],
       dashboard_changes: Array.isArray(parsed.dashboard_changes) ? parsed.dashboard_changes as DashboardChange[] : [],
     };
   } catch {
-    return { ...DEFAULT_SLEEP_STATE, sessions: [] };
+    return freshDefaults();
   }
 }
 
@@ -225,24 +290,49 @@ export function registerSleepCommand(program: Command): void {
       const previousDebt = state.debt;
       const epoch = state.sleep_started_at;
 
+      // Count sessions and bookmarks processed for history
+      let sessionsProcessed = 0;
+      let bookmarksProcessed = 0;
+
       if (epoch) {
-        // Epoch-based: only clear sessions/changes from before sleep started
+        // Epoch-based: only clear sessions/changes/bookmarks from before sleep started
+        sessionsProcessed = state.sessions.filter(s => !s.stopped_at || s.stopped_at <= epoch).length;
+        bookmarksProcessed = state.bookmarks.filter(b => b.created_at <= epoch).length;
+
         state.sessions = state.sessions.filter(s => {
           if (!s.stopped_at) return false;
           return s.stopped_at > epoch;
         });
+        state.bookmarks = state.bookmarks.filter(b => b.created_at > epoch);
         state.dashboard_changes = state.dashboard_changes.filter(c => c.timestamp > epoch);
         state.debt = state.sessions.reduce((sum, s) => sum + (s.score ?? 0), 0);
       } else {
         // Backward compat: no epoch, clear everything
+        sessionsProcessed = state.sessions.length;
+        bookmarksProcessed = state.bookmarks.length;
         state.sessions = [];
+        state.bookmarks = [];
         state.dashboard_changes = [];
         state.debt = 0;
       }
 
+      // Expire triggers past max_fires
+      state.triggers = state.triggers.filter(t => t.fired_count < t.max_fires);
+
+      // Write sleep history entry (LIFO)
+      state.sleep_history.unshift({
+        date: today(),
+        summary: summary.trim(),
+        debt_before: previousDebt,
+        debt_after: state.debt,
+        sessions_processed: sessionsProcessed,
+        bookmarks_processed: bookmarksProcessed,
+      });
+
       state.last_sleep = today();
       state.last_sleep_summary = summary.trim();
       state.sleep_started_at = null;
+      state.sessions_since_last_sleep = 0;
 
       writeSleepState(root, state);
 
@@ -261,5 +351,31 @@ export function registerSleepCommand(program: Command): void {
       const root = ensureContextRoot();
       const state = readSleepState(root);
       console.log(String(state.debt));
+    });
+
+  // --- history ---
+  sleep
+    .command('history')
+    .description('Show consolidation history log')
+    .option('-n, --limit <count>', 'Number of entries to show', '10')
+    .action((opts: { limit: string }) => {
+      const root = ensureContextRoot();
+      const state = readSleepState(root);
+
+      if (state.sleep_history.length === 0) {
+        info('No consolidation history yet.');
+        return;
+      }
+
+      const limit = parseInt(opts.limit, 10) || 10;
+      const entries = state.sleep_history.slice(0, limit);
+
+      console.log(header('Sleep History'));
+      for (const entry of entries) {
+        console.log(`  ${chalk.white(entry.date)} ${chalk.dim(`debt ${entry.debt_before} → ${entry.debt_after}`)}`);
+        console.log(`    ${chalk.dim(`${entry.sessions_processed} session(s), ${entry.bookmarks_processed} bookmark(s)`)}`);
+        console.log(`    ${entry.summary}`);
+      }
+      console.log(`\n  ${chalk.dim(`${state.sleep_history.length} total consolidation(s)`)}`);
     });
 }

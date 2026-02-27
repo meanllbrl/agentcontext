@@ -67,10 +67,13 @@ Every session start injects these automatically (zero tool calls needed):
 - **Soul, User, Memory** -- full content
 - **Extended core files index** -- names/types of style guide, tech stack, data structures
 - **Active tasks** -- status, priority, last updated
-- **Sleep state** -- current debt level
-- **Recent changelog** -- last 5 changes
+- **Bookmarks** -- tagged important moments from previous sessions, ordered by salience
+- **Contextual reminders** -- matching triggers for active tasks (prospective memory)
+- **Sleep state** -- current debt level, sessions since last sleep, consolidation history
+- **Recent changelog** -- last 3 changes
 - **Features summary** -- all features with status
-- **Knowledge index** -- all knowledge files with descriptions and tags
+- **Knowledge index** -- all knowledge files with descriptions, tags, and staleness indicators
+- **Warm knowledge** -- recently accessed/task-relevant files with first paragraph preview
 - **Pinned knowledge** -- files with `pinned: true` loaded in full
 
 Do not re-read auto-loaded files. For additional context, load on demand:
@@ -130,6 +133,10 @@ These files vary across projects. Do not assume a fixed list. Always discover dy
 - Creating structured entries (tasks, features, knowledge, changelog, releases)
 - Inserting into LIFO structures (changelog entries, task sections, feature sections)
 - Scaffolding (`agentcontext init`, `agentcontext features create`)
+- Bookmarking important moments (`agentcontext bookmark add`)
+- Managing triggers (`agentcontext trigger add/list/remove`)
+- Tracking knowledge access (`agentcontext knowledge touch`)
+- Distilling transcripts (`agentcontext transcript distill`)
 
 ---
 
@@ -143,6 +150,28 @@ These files vary across projects. Do not assume a fixed list. Always discover dy
 6. **~200 line limit** on context files. Extract detail to knowledge, keep summary + reference.
 7. **Log every session** that modifies code or makes decisions. This is the cross-session continuity mechanism.
 8. **Features are sleep-only.** Never update feature PRDs during active work. All working context goes into the task body. The sleep agent consolidates task content into features.
+
+---
+
+## Bookmarking (Awake Ripples)
+
+During active work, bookmark important moments for consolidation. Bookmarks ensure critical decisions, user preferences, and architectural choices are tagged for the sleep agent to process first.
+
+```bash
+agentcontext bookmark add "<message>" -s <1|2|3>
+```
+
+**When to auto-bookmark:**
+
+| Salience | When | Example |
+|----------|------|---------|
+| ★ (1) | Notable decision, useful pattern | "Chose CSS modules over styled-components" |
+| ★★ (2) | Architectural decision, user preference, significant bug | "User requires all auth to have rate limiting" |
+| ★★★ (3) | Critical constraint, breaking change, fundamental design choice | "Switched from REST to GraphQL for public API" |
+
+A ★★★ bookmark triggers a consolidation advisory in the next session, regardless of debt level. The sleep agent processes bookmarks FIRST, ordered by salience.
+
+After reading a knowledge file, record the access: `agentcontext knowledge touch <slug>`. This powers staleness tracking and warm knowledge loading.
 
 ---
 
@@ -173,12 +202,19 @@ Sleep debt accumulates automatically via hooks (tracks Write/Edit tool uses per 
 | 9+ | +3 | 7-9 (Sleepy) | Suggest consolidation |
 | | | 10+ (Must sleep) | Consolidate immediately |
 
+**Consolidation triggers:**
+- Debt >= 10 (strong directive)
+- Debt >= 7 (elevated advisory)
+- ★★★ bookmark exists (critical bookmark advisory, regardless of debt)
+- 5+ sessions since last sleep (rhythm advisory, regardless of debt)
+- Task completed / major implementation finished (auto-sleep)
+
 **Auto-sleep** (act without asking): task completed, major implementation finished, switching to unrelated task.
 **Inform** (let user decide): accumulated smaller changes, learnings piling up, user wrapping up.
 
 **Flow**: Tell user you're consolidating -> dispatch `agentcontext-rem-sleep` with brief -> wait for completion -> report back.
 
-**Epoch safety**: The rem-sleep agent calls `sleep start` before beginning work, which sets a timestamp epoch. `sleep done` only clears sessions/changes from before the epoch. Parallel sessions that finish during consolidation are preserved for the next cycle.
+**Epoch safety**: The rem-sleep agent calls `sleep start` before beginning work, which sets a timestamp epoch. `sleep done` only clears sessions/changes/bookmarks from before the epoch. Parallel sessions that finish during consolidation are preserved for the next cycle.
 
 For non-file-change work (architecture discussions, decisions): `agentcontext sleep add <score> "<reason>"`
 
@@ -264,15 +300,24 @@ All commands prefixed with `agentcontext`. For reading/searching, use native too
 | `knowledge create <name>` | Create knowledge file |
 | `knowledge index [--tag <tag>]` | Show knowledge index |
 | `knowledge tags` | List standard tags |
+| `knowledge touch <slug>` | Record access to knowledge file (decay tracking) |
 | `tasks create <name> [-d desc] [-p priority] [-s status] [-t tags] [-w why]` | Create task (defaults: priority=medium, status=todo) |
 | `tasks insert <name> <section> <content>` | Insert into task section |
 | `tasks complete <name>` | Complete task |
 | `tasks log <name> <content>` | Log task progress |
+| `bookmark add "<message>" [-s 1\|2\|3]` | Bookmark an important moment (default salience: 2) |
+| `bookmark list` | Show current bookmarks |
+| `bookmark clear` | Remove all bookmarks |
+| `trigger add "<when>" "<remind>" [-m max_fires] [-s source]` | Create contextual trigger |
+| `trigger list` | Show active triggers |
+| `trigger remove <id>` | Remove a trigger |
+| `transcript distill <session_id>` | Extract high-signal content from session transcript |
 | `sleep status` | Show sleep state and history |
 | `sleep add <score> "<desc>"` | Manual debt add |
 | `sleep start` | Begin consolidation epoch (safe clearing) |
-| `sleep done "<summary>"` | Mark consolidation complete |
+| `sleep done "<summary>"` | Mark consolidation complete, write history entry |
 | `sleep debt` | Output debt number (programmatic) |
+| `sleep history [-n count]` | Show consolidation history log |
 | `hook session-start` | SessionStart hook handler |
 | `hook stop` | Stop hook handler |
 | `hook subagent-start` | SubagentStart hook handler |

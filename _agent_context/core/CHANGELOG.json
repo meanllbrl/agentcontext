@@ -1,5 +1,12 @@
 [
   {
+    "date": "2026-02-27",
+    "type": "feat",
+    "scope": "memory",
+    "description": "Implement neuroscience-inspired memory system (8 phases): bookmarks (awake ripples, salience-scored), knowledge decay tracking with staleness indicators, consolidation rhythm advisory at 5+ sessions, warm knowledge tier in snapshot (7-day recency + tag-overlap heuristic), contextual triggers with auto-expiry, transcript distillation (pure Node.js structural JSONL filter), sleep history (SleepHistoryEntry, sleep_history[] LIFO), and system flow core file (core/6.system_flow.md). New commands: bookmark add/list/clear, trigger add/list/remove, transcript distill, knowledge touch, sleep history. Fixed freshDefaults() shared-reference bug in readSleepState. 48 new tests (384 total, 383 passing).",
+    "breaking": false
+  },
+  {
     "date": "2026-02-26",
     "type": "feat",
     "scope": "dashboard",

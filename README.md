@@ -53,22 +53,24 @@ And every session starts from scratch. Your agent greps for a decision it alread
 flowchart LR
     subgraph capture ["Capture"]
         STOP["Stop Hook\n(session ends)"]
+        BOOKMARK["Bookmarks\n(awake ripples)"]
         SLEEP["RemSleep Agent\n(consolidates)"]
         HUMAN["You\n(edit files or dashboard)"]
     end
 
     subgraph store ["_agent_context/"]
-        CORE["core/\nsoul · user · memory\nstyle · tech · features\nchangelog · releases"]
+        CORE["core/\nsoul · user · memory\nstyle · tech · features\nchangelog · releases\nsystem flow"]
         KNOWLEDGE["knowledge/\ntagged deep docs"]
-        STATE["state/\ntasks · sleep debt"]
+        STATE["state/\ntasks · sleep debt\nbookmarks · triggers"]
     end
 
     subgraph inject ["Inject"]
         SESSION["SessionStart Hook"]
-        SNAPSHOT["Compiled Snapshot"]
+        SNAPSHOT["Compiled Snapshot\n+ warm knowledge\n+ contextual reminders"]
         AGENT["Agent starts with\nfull context loaded"]
     end
 
+    BOOKMARK --> STATE
     STOP --> STATE
     SLEEP --> CORE
     SLEEP --> KNOWLEDGE
@@ -83,9 +85,10 @@ flowchart LR
     SNAPSHOT --> AGENT
 ```
 
-- **Hooks capture context automatically.** Stop hook records what happened. SessionStart hook injects everything before the agent's first message. SubagentStart hook briefs sub-agents on existing knowledge.
+- **Hooks capture context automatically.** Stop hook records what happened, links bookmarks, tracks session rhythm. SessionStart hook injects everything before the agent's first message. SubagentStart hook briefs sub-agents on existing knowledge.
+- **Bookmarks tag important moments.** During active work, the agent bookmarks decisions, constraints, and discoveries with salience levels. Critical bookmarks trigger immediate consolidation advisories.
 - **Files are structured by purpose.** Identity, preferences, decisions, knowledge, and active work each live in their own file with their own format.
-- **Sleep cycles consolidate knowledge.** A RemSleep agent promotes learnings, extracts docs, cleans stale entries, and resets debt.
+- **Sleep cycles consolidate knowledge.** A RemSleep agent reads bookmarks first, distills transcripts for high-signal content, promotes learnings, creates contextual triggers, cleans stale entries, and resets debt.
 - **Everything is local markdown and JSON.** Readable, editable, git-tracked, owned by you.
 
 ## Quick Start
@@ -122,6 +125,7 @@ your-project/
 │   │   ├── 3.style_guide.md    # Style & branding
 │   │   ├── 4.tech_stack.md     # Tech decisions
 │   │   ├── 5.data_structures.sql
+│   │   ├── 6.system_flow.md    # Session lifecycle, data flows
 │   │   ├── CHANGELOG.json
 │   │   ├── RELEASES.json
 │   │   └── features/           # Feature PRDs
@@ -218,20 +222,55 @@ agentcontext knowledge create <name>      # Create a knowledge doc
 agentcontext knowledge index              # List all with descriptions + tags
 agentcontext knowledge index --tag api    # Filter by tag
 agentcontext knowledge tags               # List standard tags
+agentcontext knowledge touch <slug>       # Record access (staleness tracking)
 ```
 
-Set `pinned: true` in frontmatter to auto-load a knowledge file in every snapshot.
+Set `pinned: true` in frontmatter to auto-load a knowledge file in every snapshot. Knowledge files not accessed in 30+ days are flagged as stale. Recently accessed files appear in a "warm knowledge" tier with first-paragraph previews.
+
+### Bookmarks
+
+Tag important moments during active work. Inspired by the brain's awake sharp-wave ripples that bookmark memories for consolidation during sleep.
+
+```bash
+agentcontext bookmark add "<message>" -s 2    # Bookmark with salience (1-3)
+agentcontext bookmark list                     # Show all bookmarks
+agentcontext bookmark clear                    # Clear all bookmarks
+```
+
+Salience levels: 1 = notable, 2 = significant, 3 = critical. Critical bookmarks trigger immediate consolidation advisories regardless of debt level.
+
+### Triggers
+
+Contextual reminders that fire when matching tasks are active. The brain's prospective memory: "remind me about X when working on Y."
+
+```bash
+agentcontext trigger add "<when>" "<remind>"   # Create a trigger
+agentcontext trigger list                       # Show active triggers
+agentcontext trigger remove <id>                # Remove a trigger
+```
+
+Triggers match against active task names, tags, and bookmark text. Auto-expire after a configurable number of fires (default 3).
 
 ### Sleep
 
-Sleep debt is tracked automatically via hooks. Manual commands for edge cases:
+Sleep debt is tracked automatically via hooks. Consolidation rhythm advisory fires after 5+ sessions since last sleep, even at low debt.
 
 ```bash
 agentcontext sleep status                # Debt level, sessions, last sleep
+agentcontext sleep history               # Consolidation log
 agentcontext sleep add <score> <desc>    # Add debt manually
+agentcontext sleep start                 # Mark consolidation epoch
 agentcontext sleep done <summary>        # Complete consolidation, reset
 agentcontext sleep debt                  # Raw number (for scripts)
 ```
+
+### Transcript
+
+```bash
+agentcontext transcript distill <session_id>   # Structural filter of session transcript
+```
+
+Extracts high-signal content from raw JSONL transcripts: user messages, agent decisions, code changes, errors, bookmarks. Discards noise (Read results, Glob output, tool metadata). Pure Node.js, no AI. Used by the RemSleep agent for selective deep analysis of important sessions.
 
 ### Dashboard
 
@@ -272,4 +311,4 @@ MIT
 
 ## Acknowledgements
 
-The memory system draws partial inspiration from [OpenClaw](https://github.com/openclaw/openclaw)'s approach to agent memory. The brain-region architecture, sleep consolidation cycle, and CLI-first design are my own, built from months of working with AI coding agents on real projects.
+The memory system draws partial inspiration from [OpenClaw](https://github.com/openclaw/openclaw)'s approach to agent memory. The neuroscience-inspired two-stage memory model (bookmarks during waking, selective consolidation during sleep) is based on findings from Joo & Frank 2025 (Science) on hippocampal awake sharp-wave ripples. The brain-region architecture, sleep consolidation cycle, and CLI-first design are my own, built from months of working with AI coding agents on real projects.

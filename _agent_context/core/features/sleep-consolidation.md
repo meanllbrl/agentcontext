@@ -43,21 +43,26 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
 
 ## Constraints & Decisions
 
-- **[2026-02-25]** Debt is tracked in `state/.sleep.json` (dot-prefixed to separate it from user task files in `state/`). The schema: `{ debt: number, last_sleep: string|null, last_sleep_summary: string|null, sessions: SessionRecord[] }`.
+- **[2026-02-27]** Bookmarks (awake ripples) are now the primary consolidation signal. Critical (salience 3) bookmarks trigger the consolidation advisory regardless of debt level. The rem-sleep agent processes bookmarks first.
+- **[2026-02-27]** `freshDefaults()` replaces `DEFAULT_SLEEP_STATE` spread everywhere. Spreading a const with arrays shares references across calls -- this caused test pollution. Always call `freshDefaults()` when initializing an empty SleepState.
+- **[2026-02-27]** Trigger `fired_count` is persisted by `writeSleepState()` inside `generateSnapshot()`. Triggers expire (removed from state) in `sleep done` after hitting `max_fires`. This is intentional -- persistent triggers that always fire become noise.
+- **[2026-02-27]** Transcript distillation is pure Node.js structural filtering, no AI. Keeps user messages, agent text (>20 chars), Write/Edit calls, modifying Bash, bookmark calls, errors. Discards Read/Glob/Grep/WebFetch results, tool metadata, subagent internals.
+- **[2026-02-25]** Debt is tracked in `state/.sleep.json` (dot-prefixed to separate it from user task files in `state/`).
 - **[2026-02-25]** Transcript analysis is regex-based (`/"name"\s*:\s*"(?:Write|Edit)"/g`), not a full JSON parse, for performance on large JSONL files.
 - **[2026-02-25]** The consolidation itself is done by the `agentcontext-rem-sleep` sub-agent, not by the CLI. The CLI only tracks debt; the agent dispatches the sub-agent when needed.
-- **[2026-02-25]** Sessions array is LIFO (newest first) — the most recent session is at index 0.
+- **[2026-02-25]** Sessions array is LIFO (newest first) -- the most recent session is at index 0.
 
 ## Technical Details
 
 **Sleep state file**: `_agent_context/state/.sleep.json`
 
-**Schema**:
+**Schema** (see also `_agent_context/core/6.system_flow.md` for full annotated schema):
 ```json
 {
   "debt": 4,
   "last_sleep": "2026-02-24",
   "last_sleep_summary": "Consolidated auth implementation and API design decisions",
+  "sessions_since_last_sleep": 2,
   "sessions": [
     {
       "session_id": "abc123",
@@ -66,9 +71,44 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
       "last_assistant_message": "Implemented JWT middleware...",
       "change_count": 7,
       "tool_count": 35,
-      "score": 2
+      "score": 2,
+      "bookmarks": ["bookmark-id-1"]
     }
-  ]
+  ],
+  "bookmarks": [
+    {
+      "id": "bk_abc",
+      "text": "Decided to use freshDefaults() instead of DEFAULT_SLEEP_STATE spread",
+      "salience": 3,
+      "session_id": "abc123",
+      "created_at": "2026-02-27T10:00:00.000Z"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "tr_abc",
+      "pattern": "auth",
+      "reminder": "JWT tokens expire after 24h -- always refresh before API calls",
+      "tags": ["security"],
+      "fired_count": 1,
+      "max_fires": 5,
+      "created_at": "2026-02-27T10:00:00.000Z"
+    }
+  ],
+  "knowledge_access": {
+    "jwt-auth-flow": "2026-02-27T10:00:00.000Z"
+  },
+  "sleep_history": [
+    {
+      "date": "2026-02-27",
+      "summary": "Consolidated neuroscience session",
+      "debt_before": 6,
+      "debt_after": 0,
+      "sessions_processed": 2,
+      "bookmarks_processed": 3
+    }
+  ],
+  "dashboard_changes": []
 }
 ```
 
@@ -91,9 +131,14 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
 - 41+ tools → +3
 
 **Key files**:
-- `src/cli/commands/hook.ts` — hook stop, hook session-start, transcript analysis, debt scoring
-- `src/cli/commands/sleep.ts` — sleep status, sleep add, sleep done, sleep debt, SleepState type, readSleepState/writeSleepState
-- `agents/agentcontext-rem-sleep.md` — the REM sleep consolidation sub-agent instructions
+- `src/cli/commands/hook.ts` — hook stop, hook session-start, transcript analysis, debt scoring, bookmark linking, rhythm counter
+- `src/cli/commands/sleep.ts` — sleep status, sleep add, sleep done, sleep debt, sleep history, SleepState type (Bookmark, Trigger, SleepHistoryEntry, KnowledgeAccessRecord), readSleepState/writeSleepState, freshDefaults()
+- `src/cli/commands/bookmark.ts` — bookmark add/list/clear
+- `src/cli/commands/trigger.ts` — trigger add/list/remove
+- `src/cli/commands/transcript.ts` — transcript distill (structural JSONL filter)
+- `src/cli/commands/snapshot.ts` — bookmarks section, warm knowledge tier, contextual reminders, sleep history in output, extractFirstParagraph(), trigger matching + fired_count persistence
+- `agents/agentcontext-rem-sleep.md` — the REM sleep consolidation sub-agent instructions (bookmark-first processing, transcript distillation, trigger creation, access-based anti-bloat)
+- `_agent_context/core/6.system_flow.md` — complete system lifecycle and data flow documentation
 
 **REM Sleep agent protocol**: When dispatched, the agent reads the brief from the main agent, reads session records from `.sleep.json` (using `last_assistant_message` as primary input), determines what files to update, executes updates (soul, user, memory, changelog, task logs, feature PRDs), then calls `agentcontext sleep done "<summary>"` to reset debt.
 
@@ -106,6 +151,18 @@ Agents accumulate knowledge and make decisions across many sessions, but that kn
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-02-27 - Neuroscience-Inspired Memory System (8 phases)
+- Phase 1: Bookmarks (awake ripples) -- salience-scored tagging during active work, critical bookmarks trigger consolidation advisory
+- Phase 2: Knowledge decay tracking -- knowledge_access map in SleepState, staleness indicators at 30+ days
+- Phase 3: Consolidation rhythm -- sessions_since_last_sleep counter, rhythm advisory at 5+ sessions
+- Phase 4: Warm knowledge tier -- extractFirstParagraph() helper, warm knowledge section in snapshot (7-day recency + tag overlap)
+- Phase 5: Contextual triggers -- pattern-matched reminders surfaced in snapshot, auto-expire after max_fires
+- Phase 6: Transcript distillation -- pure Node.js structural JSONL filter, no AI required
+- Phase 7: Sleep history -- SleepHistoryEntry, sleep_history[] LIFO, sleep history subcommand, snapshot shows last 3
+- Phase 8: System flow documentation -- core/6.system_flow.md with lifecycle, schema, neuroscience mapping
+- Fixed freshDefaults() shared-reference mutation bug in readSleepState
+- 48 new tests (384 total, 383 passing)
 
 ### 2026-02-27 - Tool Count Scoring
 - Added `tool_count` to `SessionRecord` schema (counts all tool calls, not just Write/Edit)

@@ -84,15 +84,36 @@ export function scoreFromToolCount(count: number): number {
 
 // ─── Consolidation Directives ───────────────────────────────────────────────
 
-function getConsolidationDirective(debt: number): string | null {
+import type { SleepState } from './sleep.js';
+
+function getConsolidationDirective(state: SleepState): string | null {
+  const { debt, bookmarks, sessions_since_last_sleep } = state;
+
+  // Check for critical (★★★) bookmarks that need immediate consolidation
+  const criticalBookmarks = bookmarks.filter(b => b.salience === 3);
+
   if (debt >= 10) {
     return [
       '>>> CONSOLIDATION STRONGLY RECOMMENDED <<<',
       '',
       `Sleep debt is ${debt} (threshold: 10). Context files are likely stale and bloated.`,
+      ...(criticalBookmarks.length > 0
+        ? [`${criticalBookmarks.length} critical bookmark(s) awaiting consolidation.`]
+        : []),
       'Consolidation will improve context quality for this and future sessions.',
       'Dispatch the agentcontext-rem-sleep agent with a brief of recent work.',
       'If the user has an urgent task, proceed but consolidate at the earliest opportunity.',
+      '',
+    ].join('\n');
+  }
+  if (criticalBookmarks.length > 0) {
+    return [
+      '>> CRITICAL BOOKMARKS NEED CONSOLIDATION <<',
+      '',
+      `${criticalBookmarks.length} critical (★★★) bookmark(s) tagged for consolidation:`,
+      ...criticalBookmarks.slice(0, 3).map(b => `  - ${b.message}`),
+      'These represent important decisions/constraints that should be consolidated into context files.',
+      'Dispatch the agentcontext-rem-sleep agent with a brief of recent work.',
       '',
     ].join('\n');
   }
@@ -102,6 +123,12 @@ function getConsolidationDirective(debt: number): string | null {
       '',
       `Sleep debt is ${debt}/10. Consider consolidating soon.`,
       'Dispatch the agentcontext-rem-sleep agent with a brief of recent work.',
+      '',
+    ].join('\n');
+  }
+  if (sessions_since_last_sleep >= 5) {
+    return [
+      '> Rhythm check: 5+ sessions since last consolidation. Consider a quick sleep cycle.',
       '',
     ].join('\n');
   }
@@ -175,6 +202,18 @@ export function registerHookCommand(program: Command): void {
       // Add current score to debt
       state.debt += score;
 
+      // Link unlinked bookmarks to this session by timestamp range
+      for (const bookmark of state.bookmarks) {
+        if (!bookmark.session_id) {
+          bookmark.session_id = sessionId;
+        }
+      }
+
+      // Increment rhythm counter (only for new sessions, not re-stops)
+      if (existing < 0) {
+        state.sessions_since_last_sleep = (state.sessions_since_last_sleep || 0) + 1;
+      }
+
       writeSleepState(root, state);
     });
 
@@ -219,7 +258,7 @@ export function registerHookCommand(program: Command): void {
       const snapshot = generateSnapshot();
       if (!snapshot) process.exit(0);
 
-      const directive = getConsolidationDirective(state.debt);
+      const directive = getConsolidationDirective(state);
       if (directive) {
         console.log(directive);
       }

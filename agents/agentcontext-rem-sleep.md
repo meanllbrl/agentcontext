@@ -27,16 +27,28 @@ Sleep debt is tracked automatically via hooks. The Stop hook records each sessio
 
 ## Session Context from .sleep.json
 
-The sleep state at `_agent_context/state/.sleep.json` contains a `sessions` array (LIFO, newest first). Each session record has:
+The sleep state at `_agent_context/state/.sleep.json` contains:
 
-- `session_id`: Unique identifier for the Claude Code session
-- `transcript_path`: Path to the full JSONL transcript for deep dives
-- `stopped_at`: ISO 8601 timestamp of when the session ended
-- `last_assistant_message`: The full text of Claude's final response in that session (what was accomplished)
-- `change_count`: Number of Write/Edit tool uses detected
-- `score`: Debt score (1-3) from auto-analysis
+**Sessions** (`sessions` array, LIFO): Each session record has `session_id`, `transcript_path`, `stopped_at`, `last_assistant_message`, `change_count`, `tool_count`, `score`.
 
-**Use `last_assistant_message` as your primary input** for understanding what each session accomplished. This is more efficient than reading the full transcript. Read the transcript only if you need fine-grained details about specific tool calls or code changes.
+**Bookmarks** (`bookmarks` array, LIFO): Tagged important moments from active work. Each has `id`, `message`, `salience` (1-3), `created_at`, `session_id`. Process bookmarks FIRST, ordered by salience (★★★ -> ★★ -> ★).
+
+**Triggers** (`triggers` array): Contextual reminders that fire when matching tasks are active. Each has `id`, `when`, `remind`, `fired_count`, `max_fires`. Expire triggers past `max_fires` during anti-bloat.
+
+**Knowledge Access** (`knowledge_access` object): Tracks when knowledge files were last accessed and how often. Use this in anti-bloat to identify stale knowledge.
+
+**Sleep History** (`sleep_history` array, LIFO): Record of past consolidation cycles.
+
+### Understanding Sessions
+
+1. **Read bookmarks first** (highest salience first). ★★★ = MUST consolidate. ★★ = SHOULD. ★ = if relevant.
+2. **Read `last_assistant_message`** for each session for basic summaries.
+3. **For sessions with ★★★ bookmarks or unclear summaries**, use transcript distillation:
+   ```bash
+   agentcontext transcript distill <session_id>
+   ```
+   This returns a structurally filtered transcript: user messages, agent decisions, code changes, errors, bookmarks. All noise (Read results, Glob output, etc.) is removed.
+4. For low-importance sessions, `last_assistant_message` is sufficient.
 
 ## The Three Core Files
 
@@ -64,10 +76,10 @@ This records a timestamp epoch. When `sleep done` is called later, only sessions
 
 ### Step 1: Understand What Happened
 
-Read the brief from the main agent. If a task was referenced, read the task file directly:
-```
-Read _agent_context/state/<task-name>.md
-```
+1. **Read bookmarks first** (from `.sleep.json`). Sort by salience: ★★★ > ★★ > ★.
+2. Read the brief from the main agent. If a task was referenced, read the task file.
+3. Read `last_assistant_message` for each session.
+4. For sessions with ★★★ bookmarks or unclear summaries, use `agentcontext transcript distill <session_id>` for filtered detail.
 
 Identify: what changed? what was decided? what was learned? what failed?
 
@@ -107,6 +119,10 @@ Use this decision tree:
 2. **Only touch what changed** — surgical updates, not rewrites.
 3. **LIFO ordering** — all dated entries: newest at top, always.
 4. **Be specific** — "Added JWT middleware with 24h token expiry" not "Updated auth."
+5. **Create triggers** for context-dependent decisions spotted during consolidation:
+   ```bash
+   agentcontext trigger add "auth" "Apply rate limiting to all auth endpoints (decision from session)"
+   ```
 
 ### Standard Knowledge Tags
 
@@ -151,6 +167,13 @@ After updating, check each file you touched:
 
 5. **Summarize, don't hoard** — when condensing, preserve the decision and its rationale. Remove the deliberation process.
 
+6. **Knowledge access-based cleanup** — check `knowledge_access` in `.sleep.json`:
+   - Not accessed in 30+ days -> candidate for archival or removal
+   - Frequently accessed but not pinned -> suggest pinning (`pinned: true` in frontmatter)
+   - Pinned but never accessed -> suggest unpinning
+
+7. **Expire triggers** — triggers past `max_fires` are automatically removed by `sleep done`, but review active triggers for relevance during anti-bloat
+
 ### Step 5: Feature Detection & Consolidation
 
 Features are **retrospective product documentation**, never updated during active work. The main agent works exclusively in task files. Your job is to consolidate task content into feature PRDs.
@@ -191,7 +214,7 @@ After all consolidation updates are done, reset the sleep debt:
 agentcontext sleep done "Consolidated [brief summary of what was processed]"
 ```
 
-This clears sessions and dashboard changes from before the epoch set in Step 0, recalculates remaining debt from any post-epoch sessions, and records the current date as the last sleep time. Post-epoch sessions (from parallel work that happened while you were consolidating) are preserved for the next cycle.
+This clears sessions, bookmarks, and dashboard changes from before the epoch set in Step 0, recalculates remaining debt from any post-epoch sessions, expires triggers past `max_fires`, writes a history entry to `sleep_history`, resets `sessions_since_last_sleep` to 0, and records the current date as the last sleep time. Post-epoch sessions (from parallel work that happened while you were consolidating) are preserved for the next cycle.
 
 ### Step 7: Report Back
 
