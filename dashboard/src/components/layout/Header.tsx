@@ -1,10 +1,34 @@
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useSleep, getSleepLevel, getSleepLevelKey } from '../../hooks/useSleep';
 import './Header.css';
 
+const ZOOM_LEVELS = [0.85, 0.9, 1.0, 1.1, 1.2];
+const ZOOM_STORAGE_KEY = 'agentcontext-zoom';
+
+function getStoredZoom(): number {
+  try {
+    const stored = localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (stored !== null) {
+      const val = parseFloat(stored);
+      if (ZOOM_LEVELS.includes(val)) return val;
+    }
+  } catch { /* ignore */ }
+  return 1.0;
+}
+
+function applyZoom(zoom: number) {
+  document.documentElement.style.setProperty('--zoom', String(zoom));
+}
+
 export function Header() {
   const { theme, setTheme, resolved } = useTheme();
   const { data: sleep } = useSleep();
+  const [zoom, setZoom] = useState(getStoredZoom);
+
+  useEffect(() => {
+    applyZoom(zoom);
+  }, [zoom]);
 
   const debt = sleep?.debt ?? 0;
   const level = getSleepLevel(debt);
@@ -16,6 +40,18 @@ export function Header() {
   };
 
   const themeLabel = theme === 'system' ? `System (${resolved})` : resolved === 'dark' ? 'Dark' : 'Light';
+
+  const zoomIndex = ZOOM_LEVELS.indexOf(zoom);
+  const canZoomOut = zoomIndex > 0;
+  const canZoomIn = zoomIndex < ZOOM_LEVELS.length - 1;
+
+  const changeZoom = (delta: -1 | 1) => {
+    const nextIndex = zoomIndex + delta;
+    if (nextIndex < 0 || nextIndex >= ZOOM_LEVELS.length) return;
+    const next = ZOOM_LEVELS[nextIndex];
+    setZoom(next);
+    try { localStorage.setItem(ZOOM_STORAGE_KEY, String(next)); } catch { /* ignore */ }
+  };
 
   return (
     <header className="header">
@@ -45,6 +81,21 @@ export function Header() {
         </div>
       </div>
       <div className="header-right">
+        <div className="zoom-controls">
+          <button
+            className="zoom-btn"
+            onClick={() => changeZoom(-1)}
+            disabled={!canZoomOut}
+            title="Zoom out"
+          >-</button>
+          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
+          <button
+            className="zoom-btn"
+            onClick={() => changeZoom(1)}
+            disabled={!canZoomIn}
+            title="Zoom in"
+          >+</button>
+        </div>
         <button className="theme-toggle" onClick={cycleTheme} title={`Theme: ${themeLabel}`}>
           {resolved === 'dark' ? (
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

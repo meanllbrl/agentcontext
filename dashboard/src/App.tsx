@@ -2,6 +2,7 @@ import { Component, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './context/ThemeContext';
 import { I18nProvider } from './context/I18nContext';
+import { ProjectProvider } from './context/ProjectContext';
 import { Shell } from './components/layout/Shell';
 import { TasksPage } from './pages/TasksPage';
 import { SleepPage } from './pages/SleepPage';
@@ -63,13 +64,15 @@ export function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <I18nProvider>
-            <Shell>
-              {(page) => <PageRouter page={page} />}
-            </Shell>
-          </I18nProvider>
-        </ThemeProvider>
+        <ProjectProvider>
+          <ThemeProvider>
+            <I18nProvider>
+              <Shell>
+                {(page) => <PageRouter page={page} />}
+              </Shell>
+            </I18nProvider>
+          </ThemeProvider>
+        </ProjectProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

@@ -15,12 +15,13 @@
   /* ─── Typography ─── */
   --font-family: 'Visby CF', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-  --font-size-xs: 11px;
-  --font-size-sm: 13px;
-  --font-size-base: 15px;
-  --font-size-lg: 18px;
-  --font-size-xl: 24px;
-  --font-size-2xl: 32px;
+  --zoom: 1;
+  --font-size-xs: calc(11px * var(--zoom));
+  --font-size-sm: calc(13px * var(--zoom));
+  --font-size-base: calc(15px * var(--zoom));
+  --font-size-lg: calc(18px * var(--zoom));
+  --font-size-xl: calc(24px * var(--zoom));
+  --font-size-2xl: calc(32px * var(--zoom));
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

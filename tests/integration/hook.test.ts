@@ -609,7 +609,7 @@ describe('hook subagent-start (integration)', () => {
     mkdirSync(join(ctx, 'state'), { recursive: true });
     writeFileSync(join(ctx, 'state', 'fix-auth-bug.md'), [
       '---',
-      'status: in-progress',
+      'status: in_progress',
       'priority: high',
       'created_at: "2026-02-25"',
       '---',
@@ -620,7 +620,7 @@ describe('hook subagent-start (integration)', () => {
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
     expect(ctx_text).toContain('fix-auth-bug');
-    expect(ctx_text).toContain('in-progress');
+    expect(ctx_text).toContain('in_progress');
   });
 
   it('includes knowledge index', () => {
@@ -736,7 +736,7 @@ describe('hook subagent-start (integration)', () => {
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
     expect(ctx_text).toContain('Sub-agent Briefing');
-    expect(ctx_text).toContain('BEFORE searching');
+    expect(ctx_text).toContain('MANDATORY');
   });
 
   it('includes context directory reference', () => {
@@ -791,7 +791,7 @@ describe('hook subagent-start (integration)', () => {
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
     expect(ctx_text).toContain('## Features');
     expect(ctx_text).toContain('web-dashboard');
-    expect(ctx_text).toContain('active');
+    expect(ctx_text).toContain('Tags: frontend, architecture');
     expect(ctx_text).toContain('visual interface');
     expect(ctx_text).toContain('Tasks: web-dashboard');
     // Each feature includes a direct read path
@@ -802,9 +802,10 @@ describe('hook subagent-start (integration)', () => {
     const output = run('hook subagent-start', tmpDir);
     const parsed = JSON.parse(output);
     const ctx_text = parsed.hookSpecificOutput.additionalContext;
-    expect(ctx_text).toContain('BEFORE searching');
-    expect(ctx_text).toContain('_agent_context/');
+    expect(ctx_text).toContain('MANDATORY');
+    expect(ctx_text).toContain('MUST check the feature list');
+    expect(ctx_text).toContain('BEFORE using Glob, Grep, or searching code');
     // Directive should appear near the start (within first 500 chars)
-    expect(ctx_text.indexOf('BEFORE searching')).toBeLessThan(500);
+    expect(ctx_text.indexOf('MANDATORY')).toBeLessThan(500);
   });
 });

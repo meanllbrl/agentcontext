@@ -49,13 +49,18 @@ function readTask(filePath: string): TaskData {
     sections = listSections(filePath);
   } catch { /* no sections */ }
 
+  // Normalize status: accept both hyphens and underscores (e.g. "in-progress" → "in_progress")
+  const rawStatus = ((data.status as string) ?? 'todo').replace(/-/g, '_');
+  const validStatuses = ['todo', 'in_progress', 'completed'];
+  const status = validStatuses.includes(rawStatus) ? rawStatus : 'todo';
+
   return {
     slug,
     id: (data.id as string) ?? '',
     name: (data.name as string) ?? slug,
     description: (data.description as string) ?? '',
     priority: (data.priority as string) ?? 'medium',
-    status: (data.status as string) ?? 'todo',
+    status,
     created_at: (data.created_at as string) ?? '',
     updated_at: (data.updated_at as string) ?? '',
     tags: Array.isArray(data.tags) ? data.tags as string[] : [],

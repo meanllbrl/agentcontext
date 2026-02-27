@@ -52,7 +52,7 @@ id: "task_abc123"
 name: "Implement auth middleware"
 description: "Add JWT validation to all protected routes"
 priority: "high"          # critical | high | medium | low
-status: "todo"            # todo | in-progress | completed
+status: "todo"            # todo | in_progress | completed
 created_at: "2026-02-25"
 updated_at: "2026-02-25"
 tags: []

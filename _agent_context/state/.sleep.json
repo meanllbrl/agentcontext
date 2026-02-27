@@ -1,10 +1,28 @@
 {
-  "debt": 3,
+  "debt": 9,
   "last_sleep": "2026-02-27",
   "last_sleep_summary": "Consolidated 8-phase neuroscience-inspired memory system: bookmarks (awake ripples), knowledge decay, consolidation rhythm, warm knowledge tier, contextual triggers, transcript distillation, sleep history, and system flow documentation. Updated soul, memory, sleep-consolidation PRD, and CHANGELOG.json. 384 tests (383 passing). 13 commands now registered.",
   "sleep_started_at": null,
-  "sessions_since_last_sleep": 1,
+  "sessions_since_last_sleep": 3,
   "sessions": [
+    {
+      "session_id": "da23f346-a836-45fc-a5db-7b78deac394f",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/da23f346-a836-45fc-a5db-7b78deac394f.jsonl",
+      "stopped_at": "2026-02-27T14:18:33.524Z",
+      "last_assistant_message": "All done. 386 tests passing. Here's the summary of changes:\n\n**SKILL.md** (highest impact): Replaced \"You do not need to repeat context when delegating to sub-agents\" with explicit delegation guidance. The main agent must now match user keywords to feature tags/names and include specific `_agent_context/` file paths in Explore/Plan prompts.\n\n**SubagentStart briefing** (`snapshot.ts`):\n- Directive changed from \"IMPORTANT\" to \"MANDATORY\" with named tools (Glob, Grep) and an actionable decision rule (\"If any feature name or tag matches your task, Read that feature file first\")\n- Feature format cleaned up: tags on their own line for better scannability, status metadata removed from the main line to keep the read path prominent\n\n**Integration tests** (`hook.test.ts`): Updated 3 tests to verify new directive wording and feature format.",
+      "change_count": 8,
+      "tool_count": 69,
+      "score": 3
+    },
+    {
+      "session_id": "fed13862-91a0-4387-9899-68f4be6a096b",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/fed13862-91a0-4387-9899-68f4be6a096b.jsonl",
+      "stopped_at": "2026-02-27T13:28:57.192Z",
+      "last_assistant_message": "All done. Here's what was implemented:\n\n**Part 1: Project-scoped localStorage**\n- New `ProjectContext` fetches `/api/health` on mount to get `contextRoot`, derives a hash-based `projectId`\n- `usePersistedState` now scopes keys as `agentcontext:{projectId}:{key}` so different projects on the same port get isolated filter/preset state\n- Legacy keys are auto-migrated on first load\n- Theme stays global (user preference, not project-specific)\n\n**Part 2: Zoom controls**\n- Font-size tokens in `tokens.css` now use `calc(Npx * var(--zoom, 1))`\n- Header has `-` / `+` buttons with 5 levels: 85%, 90%, 100%, 110%, 120%\n- Zoom persists in localStorage (global) and applies before React hydrates (inline script in `index.html`) to prevent flash\n\n**Also included from earlier**: Status normalization in `readTask()` to handle both `in-progress` and `in_progress` formats.\n\n386 tests passing, build succeeds.",
+      "change_count": 14,
+      "tool_count": 158,
+      "score": 3
+    },
     {
       "session_id": "e0fd20fe-5b26-4d5c-a588-2be816461a81",
       "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/e0fd20fe-5b26-4d5c-a588-2be816461a81.jsonl",

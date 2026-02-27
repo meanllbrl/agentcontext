@@ -485,10 +485,10 @@ export function generateSubagentBriefing(): string {
   const parts: string[] = ['# Agent Context -- Sub-agent Briefing\n'];
 
   // 1. Top-priority directive (MUST be first thing the sub-agent reads)
-  parts.push('IMPORTANT: This project has documented context. BEFORE searching or exploring code,');
-  parts.push('read the relevant `_agent_context/` files listed below. Feature PRDs, knowledge docs,');
-  parts.push('and core files already contain architectural decisions, integration details, and design');
-  parts.push('rationale. Searching the codebase without checking context first wastes time.\n');
+  parts.push('MANDATORY: This project has documented context files. You MUST check the feature list');
+  parts.push('and knowledge index below BEFORE using Glob, Grep, or searching code. If any feature');
+  parts.push('name or tag matches your task, Read that feature file first. Searching the codebase');
+  parts.push('without checking context wastes tokens and duplicates existing documentation.\n');
 
   // 2. Project summary (first meaningful line from soul file content)
   const soulPath = join(root, 'core', '0.soul.md');
@@ -540,9 +540,9 @@ export function generateSubagentBriefing(): string {
           ? data.related_tasks.join(', ')
           : '';
 
-        let featureLine = `- **${name}** (status: ${status}${tags ? `, tags: ${tags}` : ''})`;
-        featureLine += ` --> Read: _agent_context/core/features/${name}.md`;
+        let featureLine = `- **${name}** --> Read: _agent_context/core/features/${name}.md`;
         const details: string[] = [];
+        if (tags) details.push(`  Tags: ${tags}`);
         if (why) details.push(`  Why: ${why}`);
         if (relatedTasks) details.push(`  Tasks: ${relatedTasks}`);
 

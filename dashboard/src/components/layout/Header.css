@@ -113,6 +113,44 @@
   gap: var(--space-2);
 }
 
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+}
+
+.zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.zoom-btn:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text);
+}
+
+.zoom-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.zoom-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  min-width: 36px;
+  text-align: center;
+  user-select: none;
+}
+
 .theme-toggle {
   display: flex;
   align-items: center;

@@ -187,7 +187,12 @@ Scans the codebase, asks the user questions, populates core files with real cont
 
 Consolidates, calls `agentcontext sleep done` to reset debt automatically.
 
-**Context Propagation**: All sub-agents (Explore, Plan, etc.) automatically receive a lightweight context briefing via the SubagentStart hook. This includes the project summary, active tasks, and the full knowledge index. You do not need to repeat context when delegating to sub-agents.
+**Context Propagation**: All sub-agents (Explore, Plan, etc.) automatically receive a lightweight context briefing via the SubagentStart hook (project summary, features index, knowledge index, active tasks). However, this briefing is generic -- it lists everything but cannot prioritize for the current task.
+
+**When delegating to Explore/Plan agents, YOU must include relevant `_agent_context/` file paths in the prompt.** Match the user's request keywords against feature names/tags from the auto-loaded snapshot:
+- User asks about "onboarding" -> feature `project-initialization` has tag `onboarding` -> include "Read `_agent_context/core/features/project-initialization.md` first" in the prompt
+- User asks about "auth" -> if a feature tagged `auth` exists, reference it explicitly
+- This takes 5 seconds and saves the sub-agent from a 20K-token search spiral
 
 ---
 
