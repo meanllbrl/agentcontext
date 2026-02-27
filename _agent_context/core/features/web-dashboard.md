@@ -153,6 +153,14 @@ Users need a visual interface to manage agent context without using the terminal
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+### 2026-02-27 - Project-Scoped localStorage + Zoom Controls + SubagentStart Fix
+- Project-scoped localStorage: usePersistedState keys scoped by project hash (agentcontext:{projectId}:{key}); legacy keys auto-migrated; theme remains global
+- Zoom controls: 5 levels (85%-120%), persists globally, applied before React hydrates to prevent flash; font-size tokens use calc() with --zoom CSS var
+- SubagentStart root cause analysis: additionalContext is lower priority than sub-agent system prompt; fixed by updating SKILL.md to make main agent smarter about delegation (include _agent_context/ paths in prompts)
+- SubagentStart directive: IMPORTANT -> MANDATORY, named Glob/Grep, added actionable decision rule; feature format cleaned up
+- sleep_history extracted to .sleep-history.json (separate file, auto-migrated on first read)
+- 386 tests passing
+
 ### 2026-02-27 - Notion-Style TaskDetailPanel + Tool Count Scoring
 - TaskDetailPanel redesigned: properties block (Notion-style bordered card) at top, full markdown body below via marked@^15
 - Panel widened 520px → 680px; `.props-block`/`.prop-row` CSS grid (140px label / 1fr value)

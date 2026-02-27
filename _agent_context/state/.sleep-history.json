@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-02-27",
+    "summary": "Consolidated 3 sessions: SubagentStart hook root cause analysis + SKILL.md context propagation fix (main agent now includes _agent_context/ paths in sub-agent prompts), dashboard project-scoped localStorage + zoom controls, sleep_history extraction to separate file. Updated memory (2 new session entries + additionalContext technical decision), CHANGELOG.json (2 entries), web-dashboard feature PRD + task log.",
+    "debt_before": 9,
+    "debt_after": 0,
+    "sessions_processed": 3,
+    "bookmarks_processed": 0
+  },
+  {
+    "date": "2026-02-27",
     "summary": "Consolidated 8-phase neuroscience-inspired memory system: bookmarks (awake ripples), knowledge decay, consolidation rhythm, warm knowledge tier, contextual triggers, transcript distillation, sleep history, and system flow documentation. Updated soul, memory, sleep-consolidation PRD, and CHANGELOG.json. 384 tests (383 passing). 13 commands now registered.",
     "debt_before": 6,
     "debt_after": 0,

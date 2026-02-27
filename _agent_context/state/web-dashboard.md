@@ -22,6 +22,9 @@ parent_task: null
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+
+### 2026-02-27 - Session Update
+- SubagentStart hook root cause analysis + fix: directive strengthened (IMPORTANT -> MANDATORY), named tools (Glob, Grep), actionable decision rule added. SKILL.md Context Propagation paragraph replaced: now tells main agent to match task keywords against feature names/tags and include _agent_context/ paths in Explore/Plan prompts. 386 tests passing. Installed globally.
 ### 2026-02-27 - Notion-Style TaskDetailPanel + Tool Count Scoring
 - TaskDetailPanel: properties block (Notion bordered card, 140px label/1fr value grid) + markdown body via marked@^15
 - Panel widened 520px → 680px; ExpandableText (3-line clamp, requestAnimationFrame scroll height detection)
