@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import chalk from 'chalk';
 import { ensureContextRoot } from '../../lib/context-path.js';
-import { readJsonObject, writeJsonObject } from '../../lib/json-file.js';
+import { readJsonObject, writeJsonObject, readJsonArray, writeJsonArray } from '../../lib/json-file.js';
 import { today } from '../../lib/id.js';
 import { header, success, error, warn, info } from '../../lib/format.js';
 
@@ -77,7 +77,6 @@ export interface SleepState {
   bookmarks: Bookmark[];
   triggers: Trigger[];
   knowledge_access: Record<string, KnowledgeAccessRecord>;
-  sleep_history: SleepHistoryEntry[];
   dashboard_changes: DashboardChange[];
 }
 
@@ -91,7 +90,6 @@ const DEFAULT_SLEEP_STATE: SleepState = {
   bookmarks: [],
   triggers: [],
   knowledge_access: {},
-  sleep_history: [],
   dashboard_changes: [],
 };
 
@@ -101,10 +99,10 @@ function getSleepPath(root: string): string {
   return join(root, 'state', '.sleep.json');
 }
 
-/**
- * Read sleep state from disk. Returns defaults if file is missing or malformed.
- * Exported for use by snapshot and hook.
- */
+function getSleepHistoryPath(root: string): string {
+  return join(root, 'state', '.sleep-history.json');
+}
+
 /** Create a fresh default state with no shared references */
 function freshDefaults(): SleepState {
   return {
@@ -117,18 +115,38 @@ function freshDefaults(): SleepState {
     bookmarks: [],
     triggers: [],
     knowledge_access: {},
-    sleep_history: [],
     dashboard_changes: [],
   };
 }
 
+/**
+ * Read sleep state from disk. Returns defaults if file is missing or malformed.
+ * Exported for use by snapshot and hook.
+ */
 export function readSleepState(root: string): SleepState {
   const filePath = getSleepPath(root);
   if (!existsSync(filePath)) {
     return freshDefaults();
   }
   try {
-    const parsed = readJsonObject<Partial<SleepState>>(filePath);
+    const parsed = readJsonObject<Partial<SleepState> & { sleep_history?: SleepHistoryEntry[] }>(filePath);
+
+    // Migration: move sleep_history from .sleep.json to .sleep-history.json
+    if (Array.isArray(parsed.sleep_history) && parsed.sleep_history.length > 0) {
+      const historyPath = getSleepHistoryPath(root);
+      let existing: SleepHistoryEntry[] = [];
+      try {
+        if (existsSync(historyPath)) {
+          existing = readJsonArray<SleepHistoryEntry>(historyPath);
+        }
+      } catch { /* ignore */ }
+      const merged = [...parsed.sleep_history, ...existing];
+      writeJsonArray(historyPath, merged);
+      // Remove from .sleep.json
+      delete parsed.sleep_history;
+      writeJsonObject(filePath, parsed);
+    }
+
     return {
       ...freshDefaults(),
       ...parsed,
@@ -138,12 +156,31 @@ export function readSleepState(root: string): SleepState {
       knowledge_access: (parsed.knowledge_access && typeof parsed.knowledge_access === 'object' && !Array.isArray(parsed.knowledge_access))
         ? parsed.knowledge_access as Record<string, KnowledgeAccessRecord>
         : {},
-      sleep_history: Array.isArray(parsed.sleep_history) ? parsed.sleep_history : [],
       dashboard_changes: Array.isArray(parsed.dashboard_changes) ? parsed.dashboard_changes as DashboardChange[] : [],
     };
   } catch {
     return freshDefaults();
   }
+}
+
+/**
+ * Read sleep history from its own file. Returns empty array if missing.
+ */
+export function readSleepHistory(root: string): SleepHistoryEntry[] {
+  const filePath = getSleepHistoryPath(root);
+  if (!existsSync(filePath)) return [];
+  try {
+    return readJsonArray<SleepHistoryEntry>(filePath);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Write sleep history to its own file.
+ */
+export function writeSleepHistory(root: string, history: SleepHistoryEntry[]): void {
+  writeJsonArray(getSleepHistoryPath(root), history);
 }
 
 export function writeSleepState(root: string, state: SleepState): void {
@@ -319,8 +356,9 @@ export function registerSleepCommand(program: Command): void {
       // Expire triggers past max_fires
       state.triggers = state.triggers.filter(t => t.fired_count < t.max_fires);
 
-      // Write sleep history entry (LIFO)
-      state.sleep_history.unshift({
+      // Write sleep history entry to separate file (LIFO)
+      const history = readSleepHistory(root);
+      history.unshift({
         date: today(),
         summary: summary.trim(),
         debt_before: previousDebt,
@@ -328,6 +366,7 @@ export function registerSleepCommand(program: Command): void {
         sessions_processed: sessionsProcessed,
         bookmarks_processed: bookmarksProcessed,
       });
+      writeSleepHistory(root, history);
 
       state.last_sleep = today();
       state.last_sleep_summary = summary.trim();
@@ -360,15 +399,15 @@ export function registerSleepCommand(program: Command): void {
     .option('-n, --limit <count>', 'Number of entries to show', '10')
     .action((opts: { limit: string }) => {
       const root = ensureContextRoot();
-      const state = readSleepState(root);
+      const history = readSleepHistory(root);
 
-      if (state.sleep_history.length === 0) {
+      if (history.length === 0) {
         info('No consolidation history yet.');
         return;
       }
 
       const limit = parseInt(opts.limit, 10) || 10;
-      const entries = state.sleep_history.slice(0, limit);
+      const entries = history.slice(0, limit);
 
       console.log(header('Sleep History'));
       for (const entry of entries) {
@@ -376,6 +415,6 @@ export function registerSleepCommand(program: Command): void {
         console.log(`    ${chalk.dim(`${entry.sessions_processed} session(s), ${entry.bookmarks_processed} bookmark(s)`)}`);
         console.log(`    ${entry.summary}`);
       }
-      console.log(`\n  ${chalk.dim(`${state.sleep_history.length} total consolidation(s)`)}`);
+      console.log(`\n  ${chalk.dim(`${history.length} total consolidation(s)`)}`);
     });
 }

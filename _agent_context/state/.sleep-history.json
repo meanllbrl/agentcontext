@@ -1,0 +1,10 @@
+[
+  {
+    "date": "2026-02-27",
+    "summary": "Consolidated 8-phase neuroscience-inspired memory system: bookmarks (awake ripples), knowledge decay, consolidation rhythm, warm knowledge tier, contextual triggers, transcript distillation, sleep history, and system flow documentation. Updated soul, memory, sleep-consolidation PRD, and CHANGELOG.json. 384 tests (383 passing). 13 commands now registered.",
+    "debt_before": 6,
+    "debt_after": 0,
+    "sessions_processed": 2,
+    "bookmarks_processed": 0
+  }
+]

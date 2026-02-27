@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { readSleepState, SleepState } from '../../src/cli/commands/sleep.js';
+import { readSleepState, readSleepHistory, SleepState } from '../../src/cli/commands/sleep.js';
 
 function makeTmpDir(): string {
   const dir = join(tmpdir(), `ac-sleep-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -17,7 +17,6 @@ const NEW_DEFAULTS = {
   bookmarks: [],
   triggers: [],
   knowledge_access: {},
-  sleep_history: [],
 };
 
 describe('readSleepState', () => {
@@ -198,7 +197,6 @@ describe('readSleepState', () => {
     expect(state.bookmarks).toEqual([]);
     expect(state.triggers).toEqual([]);
     expect(state.knowledge_access).toEqual({});
-    expect(state.sleep_history).toEqual([]);
     expect(state.sessions_since_last_sleep).toBe(0);
   });
 
@@ -213,9 +211,6 @@ describe('readSleepState', () => {
         { id: 'trg_1', when: 'auth', remind: 'check rate limits', source: null, created_at: '2026-02-27', fired_count: 0, max_fires: 3 },
       ],
       knowledge_access: { 'jwt-auth': { last_accessed: '2026-02-27', count: 5 } },
-      sleep_history: [
-        { date: '2026-02-26', summary: 'test', debt_before: 5, debt_after: 0, sessions_processed: 3, bookmarks_processed: 2 },
-      ],
     };
     writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(persisted, null, 2));
     const state = readSleepState(tmpDir);
@@ -224,7 +219,29 @@ describe('readSleepState', () => {
     expect(state.triggers).toHaveLength(1);
     expect(state.triggers[0].when).toBe('auth');
     expect(state.knowledge_access['jwt-auth'].count).toBe(5);
-    expect(state.sleep_history).toHaveLength(1);
-    expect(state.sleep_history[0].debt_before).toBe(5);
+  });
+
+  it('migrates sleep_history from .sleep.json to .sleep-history.json', () => {
+    const persisted = {
+      debt: 0,
+      sessions: [],
+      sleep_history: [
+        { date: '2026-02-26', summary: 'migrated', debt_before: 5, debt_after: 0, sessions_processed: 3, bookmarks_processed: 2 },
+      ],
+    };
+    writeFileSync(join(tmpDir, 'state', '.sleep.json'), JSON.stringify(persisted, null, 2));
+
+    // Reading triggers migration
+    const state = readSleepState(tmpDir);
+    expect((state as Record<string, unknown>)['sleep_history']).toBeUndefined();
+
+    // History is now in separate file
+    const history = readSleepHistory(tmpDir);
+    expect(history).toHaveLength(1);
+    expect(history[0].summary).toBe('migrated');
+
+    // .sleep.json no longer has sleep_history
+    const raw = JSON.parse(require('node:fs').readFileSync(join(tmpDir, 'state', '.sleep.json'), 'utf-8'));
+    expect(raw.sleep_history).toBeUndefined();
   });
 });

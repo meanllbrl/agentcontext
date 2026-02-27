@@ -6,7 +6,7 @@ import { resolveContextRoot } from '../../lib/context-path.js';
 import { readFrontmatter } from '../../lib/frontmatter.js';
 import { readJsonArray } from '../../lib/json-file.js';
 import { readSection } from '../../lib/markdown.js';
-import { readSleepState, writeSleepState } from './sleep.js';
+import { readSleepState, writeSleepState, readSleepHistory } from './sleep.js';
 import { buildKnowledgeIndex } from '../../lib/knowledge-index.js';
 import { buildCoreIndex } from '../../lib/core-index.js';
 
@@ -251,10 +251,11 @@ export function generateSnapshot(): string {
         }
       }
     }
-    // Sleep history (last 3 entries)
-    if (sleepState.sleep_history.length > 0) {
+    // Sleep history (last 3 entries from separate file)
+    const sleepHistory = readSleepHistory(root);
+    if (sleepHistory.length > 0) {
       parts.push(`- Recent consolidation history:`);
-      for (const h of sleepState.sleep_history.slice(0, 3)) {
+      for (const h of sleepHistory.slice(0, 3)) {
         parts.push(`  - ${h.date}: debt ${h.debt_before} -> ${h.debt_after}, ${h.sessions_processed} session(s), ${h.bookmarks_processed} bookmark(s)`);
         const summary = h.summary.length > 120 ? h.summary.slice(0, 117) + '...' : h.summary;
         parts.push(`    ${summary}`);
