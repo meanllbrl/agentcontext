@@ -142,19 +142,21 @@ describe('distillTranscript', () => {
     expect(result.agentDecisions).toEqual([]);
   });
 
-  it('extracts Write and Edit tool calls as code changes with size info', () => {
+  it('extracts Write and Edit tool calls with code snippets', () => {
     const file = join(tmpDir, 'test.jsonl');
     writeFileSync(file, [
       toolCall('Write', { file_path: '/src/middleware/rate-limit.ts', content: 'const limit = 100;\nconst window = 60000;' }),
-      toolCall('Edit', { file_path: '/src/routes/auth.ts', old_string: 'old code', new_string: 'new code is here' }),
+      toolCall('Edit', { file_path: '/src/routes/auth.ts', old_string: 'if (user) {', new_string: 'if (user && auth.verified) {' }),
     ].join('\n'));
 
     const result = distillTranscript(file);
     expect(result.codeChanges).toHaveLength(2);
     expect(result.codeChanges[0]).toContain('WRITE /src/middleware/rate-limit.ts');
-    expect(result.codeChanges[0]).toContain('lines'); // Shows line count
+    expect(result.codeChanges[0]).toContain('2L'); // Shows line count
+    expect(result.codeChanges[0]).toContain('const limit'); // Shows code preview
     expect(result.codeChanges[1]).toContain('EDIT /src/routes/auth.ts');
-    expect(result.codeChanges[1]).toMatch(/\[\+\d+B\]/); // Shows +N bytes delta
+    expect(result.codeChanges[1]).toContain('if (user) {'); // Shows old snippet
+    expect(result.codeChanges[1]).toContain('if (user && auth.verified)'); // Shows new snippet
   });
 
   it('discards Read, Glob, Grep tool calls (noise)', () => {

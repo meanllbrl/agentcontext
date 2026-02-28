@@ -8,10 +8,10 @@
     {
       "session_id": "19d36307-04df-4cf9-8495-42462dcbf6a8",
       "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/19d36307-04df-4cf9-8495-42462dcbf6a8.jsonl",
-      "stopped_at": "2026-02-28T11:58:37.831Z",
-      "last_assistant_message": "Mükemmel! **Sorun çözüldü.** Detaylı özet:\n\n## Bulgu\n\nUser messages'ların `content` bazen **string**, bazen **array** formatta geliyor. `transcript distill` sadece string content'li mesajları yakaplayıp, array olanları atıyordu.\n\n**Örnek:**\n- 40 user message var transkriptte\n- Sadece 4'ü string format\n- 36'sı array format `[{type: \"text\", text: \"...\"}]` şeklinde\n- **Sonuç**: Sadece 4 mesaj yakalanıyor, geri kalanlar kayboluyor\n\n## Fix\n\nUser message parsing'i güçlendirdim:\n1. String content'i olduğu gibi tut\n2. Array content'i handle et:\n   - Text blocks `{type: \"text\", text: \"...\"}` \n   - Tool result blocks `{type: \"tool_result\", content: [...]}` (nested content)\n   - Her block tipinden text extract et\n\n## Test\n\n- 387 test passing (1 yeni test eklendi)\n- `transcript distill da23f346-...` şimdi **38+ user message** capture ediyor (öncesinde 4)\n- Array-formatted messages artık tamamen extract ediliyor\n\nKod hazır, tüm testler geçti.",
-      "change_count": 4,
-      "tool_count": 55,
+      "stopped_at": "2026-02-28T12:03:38.856Z",
+      "last_assistant_message": "## Özet\n\n**İki kritik bug fix'i yapıldı:**\n\n### 1️⃣ **Kayıp User Messages** (40 → 38+ captured)\n- User messages bazılarında **string** content, bazılarında **array** `[{type: \"text\", text: \"...\"}, {type: \"tool_result\", ...}]` format\n- Eski kod sadece string olanları (4 tane) yakaplayıp, array olanları (36 tane) atlıyordu\n- **Fix**: Array content'ı iterate edip tüm text blocks'lardan text extract et\n\n### 2️⃣ **Boş Code Changes** (bilgisiz EDIT listesi)\n- Eski: `EDIT /path` (ne değiştiği belli değil)\n- Yeni: `EDIT /path [+577B]` veya `WRITE /path (126 lines)`\n- Byte delta ve line count gösteriyor, değişim yönü ve boyutu belli oluyor\n\n**Test:** 387/387 passing  \n**Commit:** `9569cd8` \n\nArtık `transcript distill <session_id>` gerçekten **tüm session geçmişini** gösteriyor, sadece son mesajı değil.",
+      "change_count": 6,
+      "tool_count": 63,
       "score": 3
     },
     {

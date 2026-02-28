@@ -135,19 +135,23 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
               }
             }
 
-            // Write/Edit: record the change with summary
+            // Write/Edit: record the change with snippet
             if (CHANGE_TOOLS.has(toolName) && block.input) {
               const filePath = typeof block.input.file_path === 'string' ? block.input.file_path : '';
               if (toolName === 'Write') {
                 const content = typeof block.input.content === 'string' ? block.input.content : '';
                 const lines = content.split('\n').length;
-                result.codeChanges.push(`WRITE ${filePath} (${lines} lines)`);
+                const preview = content.split('\n').slice(0, 2).join(' ');
+                const previewCap = preview.length > 60 ? preview.slice(0, 57) + '...' : preview;
+                result.codeChanges.push(`WRITE ${filePath} (${lines}L): ${previewCap}`);
               } else if (toolName === 'Edit') {
                 const oldStr = typeof block.input.old_string === 'string' ? block.input.old_string : '';
                 const newStr = typeof block.input.new_string === 'string' ? block.input.new_string : '';
-                const summary = newStr.length > oldStr.length ? '+' : '-';
-                const delta = Math.abs(newStr.length - oldStr.length);
-                result.codeChanges.push(`EDIT ${filePath} [${summary}${delta}B]`);
+                const oldPrev = oldStr.slice(0, 40).replace(/\n/g, ' ');
+                const newPrev = newStr.slice(0, 40).replace(/\n/g, ' ');
+                const oldCap = oldPrev.length === 40 && oldStr.length > 40 ? oldPrev + '...' : oldPrev;
+                const newCap = newPrev.length === 40 && newStr.length > 40 ? newPrev + '...' : newPrev;
+                result.codeChanges.push(`EDIT ${filePath}\n  - ${oldCap}\n  + ${newCap}`);
               } else if (toolName === 'NotebookEdit') {
                 const nbPath = typeof block.input.notebook_path === 'string' ? block.input.notebook_path : '';
                 result.codeChanges.push(`NOTEBOOK_EDIT ${nbPath}`);
