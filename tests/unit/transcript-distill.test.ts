@@ -226,6 +226,80 @@ describe('distillTranscript', () => {
   });
 });
 
+describe('distillTranscript with sinceTimestamp', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = makeTmpDir();
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('filters out entries before sinceTimestamp', () => {
+    const file = join(tmpDir, 'test.jsonl');
+    writeFileSync(file, [
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T10:00:00.000Z', message: { role: 'user', content: 'Old message before consolidation' } }),
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T14:00:00.000Z', message: { role: 'user', content: 'New message after consolidation' } }),
+      JSON.stringify({ type: 'assistant', timestamp: '2026-02-27T14:01:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'New agent response' }] } }),
+    ].join('\n'));
+
+    const result = distillTranscript(file, '2026-02-27T12:00:00.000Z');
+    expect(result.userMessages).toHaveLength(1);
+    expect(result.userMessages[0]).toContain('New message after consolidation');
+    expect(result.agentDecisions).toHaveLength(1);
+    expect(result.agentDecisions[0]).toContain('New agent response');
+  });
+
+  it('includes all entries when sinceTimestamp is not provided', () => {
+    const file = join(tmpDir, 'test.jsonl');
+    writeFileSync(file, [
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T10:00:00.000Z', message: { role: 'user', content: 'First message' } }),
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T14:00:00.000Z', message: { role: 'user', content: 'Second message' } }),
+    ].join('\n'));
+
+    const result = distillTranscript(file);
+    expect(result.userMessages).toHaveLength(2);
+  });
+
+  it('includes entries without timestamp when sinceTimestamp is set', () => {
+    const file = join(tmpDir, 'test.jsonl');
+    writeFileSync(file, [
+      JSON.stringify({ type: 'human', message: { role: 'user', content: 'No timestamp entry' } }),
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T14:00:00.000Z', message: { role: 'user', content: 'Timestamped entry' } }),
+    ].join('\n'));
+
+    // Entries without timestamps pass through (they can't be compared)
+    const result = distillTranscript(file, '2026-02-27T12:00:00.000Z');
+    expect(result.userMessages).toHaveLength(2);
+  });
+
+  it('filters exact timestamp match (entry at sinceTimestamp is excluded)', () => {
+    const file = join(tmpDir, 'test.jsonl');
+    writeFileSync(file, [
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T12:00:00.000Z', message: { role: 'user', content: 'At exact boundary' } }),
+      JSON.stringify({ type: 'human', timestamp: '2026-02-27T12:00:00.001Z', message: { role: 'user', content: 'Just after boundary' } }),
+    ].join('\n'));
+
+    const result = distillTranscript(file, '2026-02-27T12:00:00.000Z');
+    expect(result.userMessages).toHaveLength(1);
+    expect(result.userMessages[0]).toContain('Just after boundary');
+  });
+
+  it('filters code changes and errors by timestamp too', () => {
+    const file = join(tmpDir, 'test.jsonl');
+    writeFileSync(file, [
+      JSON.stringify({ type: 'assistant', timestamp: '2026-02-27T10:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Write', input: { file_path: '/old.ts', content: 'old code' } }] } }),
+      JSON.stringify({ type: 'assistant', timestamp: '2026-02-27T15:00:00.000Z', message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Write', input: { file_path: '/new.ts', content: 'new code' } }] } }),
+    ].join('\n'));
+
+    const result = distillTranscript(file, '2026-02-27T12:00:00.000Z');
+    expect(result.codeChanges).toHaveLength(1);
+    expect(result.codeChanges[0]).toContain('/new.ts');
+  });
+});
+
 describe('formatDistilled', () => {
   it('formats distilled transcript as markdown', () => {
     const output = formatDistilled('sess-123', {
@@ -245,6 +319,18 @@ describe('formatDistilled', () => {
     expect(output).toContain('WRITE /src/rate-limit.ts');
     expect(output).toContain('### Errors');
     expect(output).toContain('### Bookmarks');
+  });
+
+  it('shows since timestamp in header when provided', () => {
+    const output = formatDistilled('sess-789', {
+      userMessages: ['Test'],
+      agentDecisions: [],
+      codeChanges: [],
+      errors: [],
+      bookmarks: [],
+    }, '2026-02-27T14:00:00.000Z');
+
+    expect(output).toContain('## Session sess-789 -- Distilled Transcript (since 2026-02-27T14:00:00.000Z)');
   });
 
   it('omits empty sections', () => {

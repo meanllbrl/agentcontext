@@ -1,26 +1,17 @@
 {
-  "debt": 6,
-  "last_sleep": "2026-02-27",
-  "last_sleep_summary": "Consolidated 3 sessions: SubagentStart hook root cause analysis + SKILL.md context propagation fix (main agent now includes _agent_context/ paths in sub-agent prompts), dashboard project-scoped localStorage + zoom controls, sleep_history extraction to separate file. Updated memory (2 new session entries + additionalContext technical decision), CHANGELOG.json (2 entries), web-dashboard feature PRD + task log.",
+  "debt": 3,
+  "last_sleep": "2026-02-28",
+  "last_sleep_summary": "Consolidated transcript distill auto-filter feature: SleepHistoryEntry extended with consolidated_at + session_ids, transcript distill auto-filters by last consolidation (--full to override, --since for manual cutoff). Updated system_flow.md schema. 394 tests passing.",
   "sleep_started_at": null,
-  "sessions_since_last_sleep": 2,
+  "sessions_since_last_sleep": 1,
   "sessions": [
     {
-      "session_id": "19d36307-04df-4cf9-8495-42462dcbf6a8",
-      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/19d36307-04df-4cf9-8495-42462dcbf6a8.jsonl",
-      "stopped_at": "2026-02-28T13:03:28.173Z",
-      "last_assistant_message": "Şu an **HARIÇ TUTULANLAR** (filtering out):\n\n| Kategori | Ne Exclude ediyoruz | Neden |\n|----------|-------------------|-------|\n| **Okuma araçları (Noise)** | Read, Glob, Grep, WebFetch, WebSearch | Kod keşfi, arama - iş yapmamak |\n| **Event tipleri** | Progress events, file-history-snapshot, system events, hook metadata | Teknik metadata, UI noise |\n| **Assistant blocks** | Thinking blocks (`type: 'thinking'`) | Dahili reasoning, user'ın görmesi gerekmiyor |\n| **Tool results** | Tool result blocks HARIÇ errors (başarılı Read/Glob/Grep sonuçları) | Başarılı aramaların detayı redundant |\n| **Trivial responses** | Agent mesajları < 20 char (\"Done!\", \"OK\") | Gerçek karar değil |\n| **Task tool calls** | Subagent Task çağrıları | Subagent'ın kendi internal'ı |\n\n**Şu anda GÖSTERILENLER:**\n- ✅ User messages (tümü)\n- ✅ Agent decisions (>20 char, full text)\n- ✅ Code changes (Write/Edit/NotebookEdit, full diffs)\n- ✅ Errors (error/failed/exception içeren tool results)\n- ✅ Bookmarks (agentcontext bookmark bash calls)\n- ✅ Modifying bash (npm install, git, mkdir, rm, etc.)\n\n**Hangileri eklemek istersin?** Mesela:\n- Read/Glob/Grep sonuçları? (hangi dosyalar okundu)\n- Tool result başarıları? (successful API calls, etc.)\n- Thinking blocks? (agent'ın dahili reasoning'i)\n- Progress events? (ne zaman ne yaptı timeline)\n- Task subagent calls? (delegate ettiği işler)",
-      "change_count": 16,
-      "tool_count": 88,
-      "score": 3
-    },
-    {
-      "session_id": "da23f346-a836-45fc-a5db-7b78deac394f",
-      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/da23f346-a836-45fc-a5db-7b78deac394f.jsonl",
-      "stopped_at": "2026-02-27T14:42:13.381Z",
-      "last_assistant_message": "Consolidation complete. Debt reset from 9 to 0. Memory updated with the SubagentStart prioritization insight, changelog entries added, and web-dashboard task/feature logged.",
-      "change_count": 17,
-      "tool_count": 108,
+      "session_id": "eaaab0da-618a-466d-8dfe-4f31a75ba0f2",
+      "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/eaaab0da-618a-466d-8dfe-4f31a75ba0f2.jsonl",
+      "stopped_at": "2026-02-28T14:19:11.654Z",
+      "last_assistant_message": "Merhaba! Nasıl yardımcı olabilirim?",
+      "change_count": 32,
+      "tool_count": 155,
       "score": 3
     }
   ],

@@ -44,11 +44,13 @@ export interface KnowledgeAccessRecord {
 
 export interface SleepHistoryEntry {
   date: string;
+  consolidated_at: string;
   summary: string;
   debt_before: number;
   debt_after: number;
   sessions_processed: number;
   bookmarks_processed: number;
+  session_ids: string[];
 }
 
 export interface FieldChange {
@@ -327,13 +329,16 @@ export function registerSleepCommand(program: Command): void {
       const previousDebt = state.debt;
       const epoch = state.sleep_started_at;
 
-      // Count sessions and bookmarks processed for history
+      // Collect sessions and bookmarks processed for history
       let sessionsProcessed = 0;
       let bookmarksProcessed = 0;
+      let processedSessionIds: string[] = [];
 
       if (epoch) {
         // Epoch-based: only clear sessions/changes/bookmarks from before sleep started
-        sessionsProcessed = state.sessions.filter(s => !s.stopped_at || s.stopped_at <= epoch).length;
+        const processedSessions = state.sessions.filter(s => !s.stopped_at || s.stopped_at <= epoch);
+        sessionsProcessed = processedSessions.length;
+        processedSessionIds = processedSessions.map(s => s.session_id);
         bookmarksProcessed = state.bookmarks.filter(b => b.created_at <= epoch).length;
 
         state.sessions = state.sessions.filter(s => {
@@ -346,6 +351,7 @@ export function registerSleepCommand(program: Command): void {
       } else {
         // Backward compat: no epoch, clear everything
         sessionsProcessed = state.sessions.length;
+        processedSessionIds = state.sessions.map(s => s.session_id);
         bookmarksProcessed = state.bookmarks.length;
         state.sessions = [];
         state.bookmarks = [];
@@ -360,11 +366,13 @@ export function registerSleepCommand(program: Command): void {
       const history = readSleepHistory(root);
       history.unshift({
         date: today(),
+        consolidated_at: new Date().toISOString(),
         summary: summary.trim(),
         debt_before: previousDebt,
         debt_after: state.debt,
         sessions_processed: sessionsProcessed,
         bookmarks_processed: bookmarksProcessed,
+        session_ids: processedSessionIds,
       });
       writeSleepHistory(root, history);
 

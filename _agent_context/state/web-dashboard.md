@@ -11,7 +11,7 @@ description: >-
 priority: critical
 status: in_progress
 created_at: '2026-02-25'
-updated_at: '2026-02-27'
+updated_at: '2026-02-28'
 tags:
   - frontend
   - architecture
@@ -22,6 +22,10 @@ parent_task: null
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
+### 2026-02-28 - transcript distill improvements + SleepHistoryEntry fields
+- transcript distill: full content no truncation, thinking blocks, trivial responses, subagent I/O, byte deltas on edits (443b944)
+- SleepHistoryEntry: consolidated_at + session_ids fields; auto-filter in transcript distill prevents re-processing already-consolidated sessions
+- 394 tests passing (all)
 
 ### 2026-02-27 - Session Update
 - SubagentStart hook root cause analysis + fix: directive strengthened (IMPORTANT -> MANDATORY), named tools (Glob, Grep), actionable decision rule added. SKILL.md Context Propagation paragraph replaced: now tells main agent to match task keywords against feature names/tags and include _agent_context/ paths in Explore/Plan prompts. 386 tests passing. Installed globally.

@@ -1,8 +1,8 @@
 import { Command } from 'commander';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { ensureContextRoot } from '../../lib/context-path.js';
-import { readSleepState } from './sleep.js';
-import { error } from '../../lib/format.js';
+import { readSleepState, readSleepHistory } from './sleep.js';
+import { error, info } from '../../lib/format.js';
 
 const MAX_TRANSCRIPT_BYTES = 50 * 1024 * 1024; // 50MB safety cap
 
@@ -17,6 +17,7 @@ const CHANGE_TOOLS = new Set(['Write', 'Edit', 'NotebookEdit']);
 
 interface TranscriptEntry {
   type: string;
+  timestamp?: string;
   message?: {
     role?: string;
     content?: string | Array<{
@@ -43,8 +44,9 @@ interface DistilledSection {
 /**
  * Parse a JSONL transcript file and extract high-signal content.
  * Pure Node.js structural filtering, no AI.
+ * If sinceTimestamp is provided, only entries after that timestamp are included.
  */
-export function distillTranscript(transcriptPath: string): DistilledSection {
+export function distillTranscript(transcriptPath: string, sinceTimestamp?: string): DistilledSection {
   const result: DistilledSection = {
     userMessages: [],
     agentDecisions: [],
@@ -69,6 +71,9 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
       } catch {
         continue;
       }
+
+      // Filter by timestamp if sinceTimestamp is provided
+      if (sinceTimestamp && entry.timestamp && entry.timestamp <= sinceTimestamp) continue;
 
       if (!entry.message) continue;
       const msg = entry.message;
@@ -222,8 +227,9 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
 /**
  * Format a distilled transcript as markdown.
  */
-export function formatDistilled(sessionId: string, distilled: DistilledSection): string {
-  const parts: string[] = [`## Session ${sessionId} -- Distilled Transcript\n`];
+export function formatDistilled(sessionId: string, distilled: DistilledSection, sinceTimestamp?: string): string {
+  const suffix = sinceTimestamp ? ` (since ${sinceTimestamp})` : '';
+  const parts: string[] = [`## Session ${sessionId} -- Distilled Transcript${suffix}\n`];
 
   if (distilled.userMessages.length > 0) {
     parts.push('### User Messages');
@@ -276,8 +282,10 @@ export function registerTranscriptCommand(program: Command): void {
   transcript
     .command('distill')
     .argument('<session_id>', 'Session ID to distill')
+    .option('--since <timestamp>', 'Only include content after this ISO timestamp')
+    .option('--full', 'Show full transcript (skip auto-filter by last consolidation)')
     .description('Extract high-signal content from a session transcript (pure structural filtering)')
-    .action((sessionId: string) => {
+    .action((sessionId: string, opts: { since?: string; full?: boolean }) => {
       const root = ensureContextRoot();
       const state = readSleepState(root);
 
@@ -297,7 +305,23 @@ export function registerTranscriptCommand(program: Command): void {
         return;
       }
 
-      const distilled = distillTranscript(session.transcript_path);
-      console.log(formatDistilled(sessionId, distilled));
+      // Determine since timestamp: --since overrides, --full disables, default auto-detects
+      let sinceTimestamp: string | undefined;
+      if (opts.since) {
+        sinceTimestamp = opts.since;
+      } else if (!opts.full) {
+        // Auto-detect: find the most recent consolidation that processed this session
+        const history = readSleepHistory(root);
+        const lastConsolidation = history.find(h =>
+          Array.isArray(h.session_ids) && h.session_ids.includes(sessionId)
+        );
+        if (lastConsolidation?.consolidated_at) {
+          sinceTimestamp = lastConsolidation.consolidated_at;
+          info(`Auto-filtering: showing content after last consolidation (${lastConsolidation.consolidated_at})`);
+        }
+      }
+
+      const distilled = distillTranscript(session.transcript_path, sinceTimestamp);
+      console.log(formatDistilled(sessionId, distilled, sinceTimestamp));
     });
 }

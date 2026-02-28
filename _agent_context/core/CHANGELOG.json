@@ -1,5 +1,26 @@
 [
   {
+    "date": "2026-02-28",
+    "type": "feat",
+    "scope": "src/cli/commands/sleep.ts",
+    "description": "Add consolidated_at (ISO timestamp) and session_ids (string[]) to SleepHistoryEntry. sleep done now records which sessions were processed. Backward compatible — old entries without these fields remain valid. 7 new tests added (394 total).",
+    "breaking": false
+  },
+  {
+    "date": "2026-02-28",
+    "type": "feat",
+    "scope": "src/cli/commands/transcript.ts",
+    "description": "transcript distill now auto-filters by consolidated_at from sleep history: if a session was previously consolidated, only shows content after that timestamp. --full flag shows entire transcript. --since <iso> for manual cutoff. Entries without timestamps pass through. Prevents re-reading already-processed content in multi-cycle sessions.",
+    "breaking": false
+  },
+  {
+    "date": "2026-02-28",
+    "type": "feat",
+    "scope": "src/cli/commands/transcript.ts",
+    "description": "transcript distill: include thinking blocks, show full content without truncation, include trivial responses, show subagent I/O (input+output, not internal tool calls), show byte deltas on Edit changes and line count on Write. Commit 443b944.",
+    "breaking": false
+  },
+  {
     "date": "2026-02-27",
     "type": "fix",
     "scope": "skill/SKILL.md",
