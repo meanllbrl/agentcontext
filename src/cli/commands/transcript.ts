@@ -74,8 +74,35 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
       const msg = entry.message;
 
       // User messages: always keep
-      if (msg.role === 'user' && typeof msg.content === 'string') {
-        const trimmed = msg.content.trim();
+      if (msg.role === 'user') {
+        let text = '';
+        if (typeof msg.content === 'string') {
+          text = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          // Collect all text from array content (multiple text blocks, tool results, etc)
+          for (const block of msg.content) {
+            if (typeof block === 'string') {
+              text += block + ' ';
+            } else if (block && typeof block === 'object') {
+              // Handle text blocks: {type: "text", text: "..."}
+              if (block.type === 'text' && typeof block.text === 'string') {
+                text += block.text + ' ';
+              }
+              // Handle tool result blocks that may have content array
+              else if ((block as Record<string, unknown>).type === 'tool_result' && Array.isArray((block as Record<string, unknown>).content)) {
+                const content = (block as Record<string, unknown>).content as Array<unknown>;
+                for (const contentBlock of content) {
+                  if (typeof contentBlock === 'string') {
+                    text += contentBlock + ' ';
+                  } else if (contentBlock && typeof contentBlock === 'object' && (contentBlock as Record<string, unknown>).type === 'text') {
+                    text += ((contentBlock as Record<string, unknown>).text || '') + ' ';
+                  }
+                }
+              }
+            }
+          }
+        }
+        const trimmed = text.trim();
         if (trimmed && trimmed.length > 0) {
           const capped = trimmed.length > 500 ? trimmed.slice(0, 497) + '...' : trimmed;
           result.userMessages.push(capped);
@@ -108,13 +135,19 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
               }
             }
 
-            // Write/Edit: record the change
+            // Write/Edit: record the change with summary
             if (CHANGE_TOOLS.has(toolName) && block.input) {
               const filePath = typeof block.input.file_path === 'string' ? block.input.file_path : '';
               if (toolName === 'Write') {
-                result.codeChanges.push(`WRITE ${filePath}`);
+                const content = typeof block.input.content === 'string' ? block.input.content : '';
+                const lines = content.split('\n').length;
+                result.codeChanges.push(`WRITE ${filePath} (${lines} lines)`);
               } else if (toolName === 'Edit') {
-                result.codeChanges.push(`EDIT ${filePath}`);
+                const oldStr = typeof block.input.old_string === 'string' ? block.input.old_string : '';
+                const newStr = typeof block.input.new_string === 'string' ? block.input.new_string : '';
+                const summary = newStr.length > oldStr.length ? '+' : '-';
+                const delta = Math.abs(newStr.length - oldStr.length);
+                result.codeChanges.push(`EDIT ${filePath} [${summary}${delta}B]`);
               } else if (toolName === 'NotebookEdit') {
                 const nbPath = typeof block.input.notebook_path === 'string' ? block.input.notebook_path : '';
                 result.codeChanges.push(`NOTEBOOK_EDIT ${nbPath}`);
