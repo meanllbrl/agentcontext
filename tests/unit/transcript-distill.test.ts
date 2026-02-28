@@ -131,15 +131,19 @@ describe('distillTranscript', () => {
     expect(result.agentDecisions[0]).toContain('token bucket');
   });
 
-  it('skips trivial agent responses', () => {
+  it('includes all agent responses including trivial ones', () => {
     const file = join(tmpDir, 'test.jsonl');
     writeFileSync(file, [
       assistantText('Done!'),
       assistantText('OK'),
+      assistantText('This is a longer meaningful response'),
     ].join('\n'));
 
     const result = distillTranscript(file);
-    expect(result.agentDecisions).toEqual([]);
+    expect(result.agentDecisions).toHaveLength(3);
+    expect(result.agentDecisions[0]).toBe('Done!');
+    expect(result.agentDecisions[1]).toBe('OK');
+    expect(result.agentDecisions[2]).toContain('meaningful');
   });
 
   it('extracts Write and Edit tool calls with full content', () => {

@@ -8,10 +8,10 @@
     {
       "session_id": "19d36307-04df-4cf9-8495-42462dcbf6a8",
       "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/19d36307-04df-4cf9-8495-42462dcbf6a8.jsonl",
-      "stopped_at": "2026-02-28T12:54:49.117Z",
-      "last_assistant_message": "Tamam, **gerçek fix yapıldı.** \n\nŞimdi `transcript distill` çıktısı:\n\n```\n### Code Changes\n- WRITE /path (126L): # First two lines...\n- EDIT /path\n  - old line snippet (first 40 char)\n  + new line snippet (first 40 char)\n```\n\n**Limitasyon:** 40 char snippet yine de kısa olabilir. Ama:\n- ✅ Ne yapıldığını belli ediyor\n- ✅ \"EDIT file 6 times\" sıkıcılığından kurtarıyor\n- ✅ Verbose olmayıp summary tutuyor\n\nİhtiyaç varsa `--detailed` flag'i ekleyebiliriz full diff göstermek için. Ama şimdi en azından **yararlı bilgi** var.\n\n**Commit:** `927d5f3` - 387 tests passing",
-      "change_count": 8,
-      "tool_count": 70,
+      "stopped_at": "2026-02-28T13:03:28.173Z",
+      "last_assistant_message": "Şu an **HARIÇ TUTULANLAR** (filtering out):\n\n| Kategori | Ne Exclude ediyoruz | Neden |\n|----------|-------------------|-------|\n| **Okuma araçları (Noise)** | Read, Glob, Grep, WebFetch, WebSearch | Kod keşfi, arama - iş yapmamak |\n| **Event tipleri** | Progress events, file-history-snapshot, system events, hook metadata | Teknik metadata, UI noise |\n| **Assistant blocks** | Thinking blocks (`type: 'thinking'`) | Dahili reasoning, user'ın görmesi gerekmiyor |\n| **Tool results** | Tool result blocks HARIÇ errors (başarılı Read/Glob/Grep sonuçları) | Başarılı aramaların detayı redundant |\n| **Trivial responses** | Agent mesajları < 20 char (\"Done!\", \"OK\") | Gerçek karar değil |\n| **Task tool calls** | Subagent Task çağrıları | Subagent'ın kendi internal'ı |\n\n**Şu anda GÖSTERILENLER:**\n- ✅ User messages (tümü)\n- ✅ Agent decisions (>20 char, full text)\n- ✅ Code changes (Write/Edit/NotebookEdit, full diffs)\n- ✅ Errors (error/failed/exception içeren tool results)\n- ✅ Bookmarks (agentcontext bookmark bash calls)\n- ✅ Modifying bash (npm install, git, mkdir, rm, etc.)\n\n**Hangileri eklemek istersin?** Mesela:\n- Read/Glob/Grep sonuçları? (hangi dosyalar okundu)\n- Tool result başarıları? (successful API calls, etc.)\n- Thinking blocks? (agent'ın dahili reasoning'i)\n- Progress events? (ne zaman ne yaptı timeline)\n- Task subagent calls? (delegate ettiği işler)",
+      "change_count": 16,
+      "tool_count": 88,
       "score": 3
     },
     {

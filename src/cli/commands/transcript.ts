@@ -112,11 +112,19 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
       // Assistant messages
       if (msg.role === 'assistant' && Array.isArray(msg.content)) {
         for (const block of msg.content) {
-          // Agent text responses (reasoning/conclusions)
+          // Agent text responses (all, including trivial)
           if (block.type === 'text' && block.text) {
             const text = block.text.trim();
-            if (text.length > 20) { // skip trivial responses
+            if (text.length > 0) {
               result.agentDecisions.push(text);
+            }
+          }
+
+          // Thinking blocks (internal reasoning)
+          if (block.type === 'thinking' && block.thinking) {
+            const thinking = (typeof block.thinking === 'string' ? block.thinking : '').trim();
+            if (thinking.length > 0) {
+              result.agentDecisions.push(`[thinking] ${thinking}`);
             }
           }
 
@@ -164,20 +172,33 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
             // Skip noise tools entirely
             if (NOISE_TOOLS.has(toolName)) continue;
 
-            // Task tool (subagent): only final answers matter
-            if (toolName === 'Task') continue; // subagent results handled separately
+            // Task tool (subagent I/O): show input prompt and final answer
+            if (toolName === 'Task' && block.input) {
+              const prompt = typeof block.input.prompt === 'string' ? block.input.prompt : '';
+              if (prompt.length > 20) {
+                result.agentDecisions.push(`[subagent-task] ${prompt}`);
+              }
+              continue;
+            }
           }
         }
         continue;
       }
 
-      // Tool results: check for errors
+      // Tool results: check for errors and subagent outputs
       if (msg.role === 'tool' && Array.isArray(msg.content)) {
         for (const block of msg.content) {
           if (block.type === 'tool_result') {
             const text = typeof block.text === 'string' ? block.text : '';
+
+            // Errors
             if (/error|Error|ERROR|failed|Failed|FAILED|exception|Exception/.test(text)) {
               result.errors.push(text);
+            }
+
+            // Subagent outputs (from Task tool results)
+            if (text.length > 20 && text.includes('[subagent]')) {
+              result.agentDecisions.push(`[subagent-result] ${text}`);
             }
           }
         }
