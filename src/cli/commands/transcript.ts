@@ -104,8 +104,7 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
         }
         const trimmed = text.trim();
         if (trimmed && trimmed.length > 0) {
-          const capped = trimmed.length > 500 ? trimmed.slice(0, 497) + '...' : trimmed;
-          result.userMessages.push(capped);
+          result.userMessages.push(trimmed);
         }
         continue;
       }
@@ -117,8 +116,7 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
           if (block.type === 'text' && block.text) {
             const text = block.text.trim();
             if (text.length > 20) { // skip trivial responses
-              const capped = text.length > 300 ? text.slice(0, 297) + '...' : text;
-              result.agentDecisions.push(capped);
+              result.agentDecisions.push(text);
             }
           }
 
@@ -135,23 +133,17 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
               }
             }
 
-            // Write/Edit: record the change with snippet
+            // Write/Edit: record full change
             if (CHANGE_TOOLS.has(toolName) && block.input) {
               const filePath = typeof block.input.file_path === 'string' ? block.input.file_path : '';
               if (toolName === 'Write') {
                 const content = typeof block.input.content === 'string' ? block.input.content : '';
                 const lines = content.split('\n').length;
-                const preview = content.split('\n').slice(0, 2).join(' ');
-                const previewCap = preview.length > 60 ? preview.slice(0, 57) + '...' : preview;
-                result.codeChanges.push(`WRITE ${filePath} (${lines}L): ${previewCap}`);
+                result.codeChanges.push(`WRITE ${filePath} (${lines} lines)\n${content}`);
               } else if (toolName === 'Edit') {
                 const oldStr = typeof block.input.old_string === 'string' ? block.input.old_string : '';
                 const newStr = typeof block.input.new_string === 'string' ? block.input.new_string : '';
-                const oldPrev = oldStr.slice(0, 40).replace(/\n/g, ' ');
-                const newPrev = newStr.slice(0, 40).replace(/\n/g, ' ');
-                const oldCap = oldPrev.length === 40 && oldStr.length > 40 ? oldPrev + '...' : oldPrev;
-                const newCap = newPrev.length === 40 && newStr.length > 40 ? newPrev + '...' : newPrev;
-                result.codeChanges.push(`EDIT ${filePath}\n  - ${oldCap}\n  + ${newCap}`);
+                result.codeChanges.push(`EDIT ${filePath}\n--- OLD ---\n${oldStr}\n--- NEW ---\n${newStr}`);
               } else if (toolName === 'NotebookEdit') {
                 const nbPath = typeof block.input.notebook_path === 'string' ? block.input.notebook_path : '';
                 result.codeChanges.push(`NOTEBOOK_EDIT ${nbPath}`);
@@ -164,8 +156,7 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
               const cmd = typeof block.input.command === 'string' ? block.input.command : '';
               // Detect modifying bash commands
               if (/\b(npm install|npm i |yarn add|pnpm add|pip install|git |mkdir |rm |mv |cp |chmod |chown |sed |awk )/.test(cmd)) {
-                const capped = cmd.length > 200 ? cmd.slice(0, 197) + '...' : cmd;
-                result.codeChanges.push(`BASH ${capped}`);
+                result.codeChanges.push(`BASH ${cmd}`);
               }
               continue;
             }
@@ -186,8 +177,7 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
           if (block.type === 'tool_result') {
             const text = typeof block.text === 'string' ? block.text : '';
             if (/error|Error|ERROR|failed|Failed|FAILED|exception|Exception/.test(text)) {
-              const capped = text.length > 300 ? text.slice(0, 297) + '...' : text;
-              result.errors.push(capped);
+              result.errors.push(text);
             }
           }
         }
@@ -197,8 +187,7 @@ export function distillTranscript(transcriptPath: string): DistilledSection {
       if (entry.subagent?.result) {
         const subResult = entry.subagent.result.trim();
         if (subResult.length > 20) {
-          const capped = subResult.length > 300 ? subResult.slice(0, 297) + '...' : subResult;
-          result.agentDecisions.push(`[subagent] ${capped}`);
+          result.agentDecisions.push(`[subagent] ${subResult}`);
         }
       }
     }

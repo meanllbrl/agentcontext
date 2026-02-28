@@ -142,7 +142,7 @@ describe('distillTranscript', () => {
     expect(result.agentDecisions).toEqual([]);
   });
 
-  it('extracts Write and Edit tool calls with code snippets', () => {
+  it('extracts Write and Edit tool calls with full content', () => {
     const file = join(tmpDir, 'test.jsonl');
     writeFileSync(file, [
       toolCall('Write', { file_path: '/src/middleware/rate-limit.ts', content: 'const limit = 100;\nconst window = 60000;' }),
@@ -152,11 +152,13 @@ describe('distillTranscript', () => {
     const result = distillTranscript(file);
     expect(result.codeChanges).toHaveLength(2);
     expect(result.codeChanges[0]).toContain('WRITE /src/middleware/rate-limit.ts');
-    expect(result.codeChanges[0]).toContain('2L'); // Shows line count
-    expect(result.codeChanges[0]).toContain('const limit'); // Shows code preview
+    expect(result.codeChanges[0]).toContain('2 lines');
+    expect(result.codeChanges[0]).toContain('const limit = 100'); // Full content
     expect(result.codeChanges[1]).toContain('EDIT /src/routes/auth.ts');
-    expect(result.codeChanges[1]).toContain('if (user) {'); // Shows old snippet
-    expect(result.codeChanges[1]).toContain('if (user && auth.verified)'); // Shows new snippet
+    expect(result.codeChanges[1]).toContain('--- OLD ---');
+    expect(result.codeChanges[1]).toContain('if (user) {');
+    expect(result.codeChanges[1]).toContain('--- NEW ---');
+    expect(result.codeChanges[1]).toContain('if (user && auth.verified) {');
   });
 
   it('discards Read, Glob, Grep tool calls (noise)', () => {
@@ -196,14 +198,14 @@ describe('distillTranscript', () => {
     expect(result.bookmarks[0]).toContain('agentcontext bookmark');
   });
 
-  it('caps long user messages at 500 chars', () => {
+  it('keeps full user messages (no truncation)', () => {
     const file = join(tmpDir, 'test.jsonl');
     const longMsg = 'A'.repeat(600);
     writeFileSync(file, userMessage(longMsg));
 
     const result = distillTranscript(file);
-    expect(result.userMessages[0].length).toBeLessThanOrEqual(500);
-    expect(result.userMessages[0]).toContain('...');
+    expect(result.userMessages[0].length).toBe(600);
+    expect(result.userMessages[0]).not.toContain('...');
   });
 
   it('handles malformed JSONL lines gracefully', () => {

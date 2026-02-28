@@ -8,10 +8,10 @@
     {
       "session_id": "19d36307-04df-4cf9-8495-42462dcbf6a8",
       "transcript_path": "/Users/mehmetnuraydin/.claude/projects/-Users-mehmetnuraydin-projects-agentcontext/19d36307-04df-4cf9-8495-42462dcbf6a8.jsonl",
-      "stopped_at": "2026-02-28T12:03:38.856Z",
-      "last_assistant_message": "## Özet\n\n**İki kritik bug fix'i yapıldı:**\n\n### 1️⃣ **Kayıp User Messages** (40 → 38+ captured)\n- User messages bazılarında **string** content, bazılarında **array** `[{type: \"text\", text: \"...\"}, {type: \"tool_result\", ...}]` format\n- Eski kod sadece string olanları (4 tane) yakaplayıp, array olanları (36 tane) atlıyordu\n- **Fix**: Array content'ı iterate edip tüm text blocks'lardan text extract et\n\n### 2️⃣ **Boş Code Changes** (bilgisiz EDIT listesi)\n- Eski: `EDIT /path` (ne değiştiği belli değil)\n- Yeni: `EDIT /path [+577B]` veya `WRITE /path (126 lines)`\n- Byte delta ve line count gösteriyor, değişim yönü ve boyutu belli oluyor\n\n**Test:** 387/387 passing  \n**Commit:** `9569cd8` \n\nArtık `transcript distill <session_id>` gerçekten **tüm session geçmişini** gösteriyor, sadece son mesajı değil.",
-      "change_count": 6,
-      "tool_count": 63,
+      "stopped_at": "2026-02-28T12:54:49.117Z",
+      "last_assistant_message": "Tamam, **gerçek fix yapıldı.** \n\nŞimdi `transcript distill` çıktısı:\n\n```\n### Code Changes\n- WRITE /path (126L): # First two lines...\n- EDIT /path\n  - old line snippet (first 40 char)\n  + new line snippet (first 40 char)\n```\n\n**Limitasyon:** 40 char snippet yine de kısa olabilir. Ama:\n- ✅ Ne yapıldığını belli ediyor\n- ✅ \"EDIT file 6 times\" sıkıcılığından kurtarıyor\n- ✅ Verbose olmayıp summary tutuyor\n\nİhtiyaç varsa `--detailed` flag'i ekleyebiliriz full diff göstermek için. Ama şimdi en azından **yararlı bilgi** var.\n\n**Commit:** `927d5f3` - 387 tests passing",
+      "change_count": 8,
+      "tool_count": 70,
       "score": 3
     },
     {
