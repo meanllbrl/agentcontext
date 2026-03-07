@@ -1,5 +1,47 @@
 [
   {
+    "date": "2026-03-07",
+    "type": "feat",
+    "scope": "dashboard, src/server/routes/core.ts, src/cli/commands/snapshot.ts, agents/agentcontext-rem-sleep.md, skill/SKILL.md",
+    "description": "Versions unified with Releases: deleted VERSIONS.json system and src/server/routes/versions.ts. Extended ReleaseEntry with optional status: 'planning' | 'released' field (backward compat — entries without status treated as released). CLI 'core releases add --status planning' creates planning-stage versions. Snapshot 'Upcoming Versions' section shows planning releases separately from 'Latest Release'. VersionManager redesigned: full-width 680px modal, stats header, planning/released sections, Release button to promote planning entries. SKILL.md Versioning section added. rem-sleep agent updated with Step 5b (Version Readiness Check) and version in decision tree.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-07",
+    "type": "feat",
+    "scope": "dashboard/src/components/tasks/EisenhowerMatrix.tsx, dashboard/src/styles/tokens.css",
+    "description": "Eisenhower Matrix view: 2×2 priority×urgency grid (Do First, Schedule, Delegate, Don't Do quadrants). Excludes completed tasks. Axis labels, quadrant color tokens. Accessible via viewMode toggle in TaskFilters.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-07",
+    "type": "feat",
+    "scope": "dashboard/src/components/tasks/MultiSelectFilter.tsx",
+    "description": "MultiSelectFilter with type-ahead search: checkbox-based multi-select with search input that shows when >5 options. All/None toggle. Used for status, priority, urgency, tags, version filters in Kanban.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-07",
+    "type": "feat",
+    "scope": "dashboard/src/components/tasks, dashboard/src/hooks/useVersions.ts",
+    "description": "Kanban sub-grouping and extended views: SubGroupSection (collapsible nested sections with chevron/dot/count), group-by-tags (tasks appear in each applicable tag column), group-by-version, group-by-urgency. urgency field (critical/high/medium/low) and version field added to TaskData, CreateTaskInput, UpdateTaskInput, CLI tasks create --urgency and --version flags.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-07",
+    "type": "feat",
+    "scope": "dashboard/src/pages/CorePage.tsx, dashboard/src/pages/KnowledgePage.tsx, dashboard/src/components/core/",
+    "description": "File/Preview tab toggle added to Core, Knowledge, and Features pages: MarkdownPreview component renders markdown as HTML (via marked), JsonPreview renders formatted JSON. Consistent File/Preview tab pattern across all content pages.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-07",
+    "type": "fix",
+    "scope": "src/cli/commands/hook.ts",
+    "description": "Task slug extraction regex tightened: was matching task names in prose text (false positives from reading transcripts). Now only matches within JSON command/file_path values using context-specific patterns — regex anchored to '\"command\":\"...\"' and '\"file_path\":\"...\"' JSON keys. 468 tests passing.",
+    "breaking": false
+  },
+  {
     "date": "2026-03-02",
     "type": "feat",
     "scope": "src/cli/commands/hook.ts, src/cli/commands/sleep.ts, src/cli/commands/install-skill.ts, skill/SKILL.md, agents/agentcontext-rem-sleep.md",

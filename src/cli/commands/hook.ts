@@ -38,13 +38,14 @@ function readStdin(): Record<string, unknown> | null {
 export interface TranscriptAnalysis {
   changeCount: number;  // Write + Edit tool calls only
   toolCount: number;    // ALL tool calls (any tool name)
+  taskSlugs: string[];  // task slugs extracted from tool calls and file paths
 }
 
-const ZERO_ANALYSIS: TranscriptAnalysis = { changeCount: 0, toolCount: 0 };
+const ZERO_ANALYSIS: TranscriptAnalysis = { changeCount: 0, toolCount: 0, taskSlugs: [] };
 
 /**
  * Analyze a JSONL transcript file for tool usage.
- * Returns change count (Write/Edit) and total tool count.
+ * Returns change count (Write/Edit), total tool count, and auto-detected task slugs.
  * Returns zeros on any error.
  */
 export function analyzeTranscript(transcriptPath: string): TranscriptAnalysis {
@@ -55,9 +56,22 @@ export function analyzeTranscript(transcriptPath: string): TranscriptAnalysis {
     const content = readFileSync(transcriptPath, 'utf-8');
     const changeMatches = content.match(/"name"\s*:\s*"(?:Write|Edit)"/g);
     const toolMatches = content.match(/"name"\s*:\s*"[A-Za-z_]+"/g);
+
+    // Extract task slugs from agentcontext CLI commands and task file paths.
+    // Only match within "command":"..." JSON values to avoid prose/explanation noise.
+    const slugs = new Set<string>();
+    for (const m of content.matchAll(/"command"\s*:\s*"[^"]*agentcontext\s+tasks?\s+(?:log|insert|complete|create)\s+(?:\\?["'])?([a-z0-9][a-z0-9-]*)/g)) {
+      slugs.add(m[1]);
+    }
+    // Match task file paths in "file_path":"..." JSON values
+    for (const m of content.matchAll(/"file_path"\s*:\s*"[^"]*_agent_context\/state\/([a-z0-9][a-z0-9-]*)\.md"/g)) {
+      slugs.add(m[1]);
+    }
+
     return {
       changeCount: changeMatches ? changeMatches.length : 0,
       toolCount: toolMatches ? toolMatches.length : 0,
+      taskSlugs: [...slugs],
     };
   } catch {
     return ZERO_ANALYSIS;
@@ -346,6 +360,20 @@ export function registerHookCommand(program: Command): void {
       const { changeCount, toolCount } = analysis;
       const score = Math.max(scoreFromChangeCount(changeCount), scoreFromToolCount(toolCount));
 
+      // Link unlinked bookmarks to this session
+      for (const bookmark of state.bookmarks) {
+        if (!bookmark.session_id) {
+          bookmark.session_id = sessionId;
+        }
+      }
+
+      // Derive task_slugs: merge transcript-extracted slugs with bookmark task_slug values
+      const bookmarkTaskSlugs = state.bookmarks
+        .filter(b => b.session_id === sessionId && b.task_slug)
+        .map(b => b.task_slug!);
+      const transcriptTaskSlugs = analysis.taskSlugs;
+      const taskSlugs = [...new Set([...transcriptTaskSlugs, ...bookmarkTaskSlugs])];
+
       // Check if session already exists (e.g., stop fired twice for same session)
       const existing = state.sessions.findIndex(s => s.session_id === sessionId);
       if (existing >= 0) {
@@ -359,6 +387,9 @@ export function registerHookCommand(program: Command): void {
         state.sessions[existing].change_count = changeCount;
         state.sessions[existing].tool_count = toolCount;
         state.sessions[existing].score = score;
+        // Merge task_slugs on re-stop
+        const existingSlugs = state.sessions[existing].task_slugs ?? [];
+        state.sessions[existing].task_slugs = [...new Set([...existingSlugs, ...taskSlugs])];
       } else {
         state.sessions.unshift({
           session_id: sessionId,
@@ -368,18 +399,12 @@ export function registerHookCommand(program: Command): void {
           change_count: changeCount,
           tool_count: toolCount,
           score,
+          task_slugs: taskSlugs,
         });
       }
 
       // Add current score to debt
       state.debt += score;
-
-      // Link unlinked bookmarks to this session by timestamp range
-      for (const bookmark of state.bookmarks) {
-        if (!bookmark.session_id) {
-          bookmark.session_id = sessionId;
-        }
-      }
 
       // Increment rhythm counter (only for new sessions, not re-stops)
       if (existing < 0) {

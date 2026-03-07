@@ -1,35 +1,45 @@
 import { useState, useMemo } from 'react';
 import { useI18n } from '../../context/I18nContext';
 import { FilterPopover } from './FilterPopover';
+import { MultiSelectFilter } from './MultiSelectFilter';
 import { MiniCalendar } from './MiniCalendar';
 import './TaskFilters.css';
 
-export type SortField = 'updated_at' | 'created_at' | 'priority' | 'name';
-export type GroupBy = 'status' | 'priority' | 'none';
+export type SortField = 'updated_at' | 'created_at' | 'priority' | 'urgency' | 'name';
+export type GroupBy = 'status' | 'priority' | 'urgency' | 'tags' | 'version' | 'none';
+export type ViewMode = 'kanban' | 'eisenhower';
 export type DateField = 'created_at' | 'updated_at';
 
 export interface FilterState {
-  priorityFilter: string;
-  statusFilter: string;
-  tagFilter: string;
+  priorityFilter: string[];
+  statusFilter: string[];
+  urgencyFilter: string[];
+  tagFilter: string[];
+  versionFilter: string[];
   searchQuery: string;
   dateField: DateField;
   dateFrom: string;
   dateTo: string;
   sortField: SortField;
   groupBy: GroupBy;
+  subGroupBy: GroupBy;
+  viewMode: ViewMode;
 }
 
 export const DEFAULT_FILTERS: FilterState = {
-  priorityFilter: '',
-  statusFilter: '',
-  tagFilter: '',
+  priorityFilter: [],
+  statusFilter: [],
+  urgencyFilter: [],
+  tagFilter: [],
+  versionFilter: [],
   searchQuery: '',
   dateField: 'updated_at',
   dateFrom: '',
   dateTo: '',
   sortField: 'updated_at',
   groupBy: 'status',
+  subGroupBy: 'none',
+  viewMode: 'kanban',
 };
 
 export interface FilterPreset {
@@ -47,6 +57,9 @@ interface TaskFiltersProps {
   onSavePreset: (name: string) => void;
   onLoadPreset: (preset: FilterPreset) => void;
   onDeletePreset: (id: string) => void;
+  allTags: string[];
+  allVersions: string[];
+  onVersionManagerClick: () => void;
 }
 
 // ─── Icons ───
@@ -104,6 +117,36 @@ function SaveIcon() {
   );
 }
 
+function KanbanIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1" width="3.5" height="12" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+      <rect x="5.25" y="1" width="3.5" height="8" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+      <rect x="9.5" y="1" width="3.5" height="10" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+    </svg>
+  );
+}
+
+function MatrixIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+      <rect x="7.5" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+      <rect x="1" y="7.5" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+      <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+    </svg>
+  );
+}
+
+function MilestoneIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+      <path d="M2 2V12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      <path d="M2 3H9L7 5.5L9 8H2" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 // ─── Data ───
 
 const STATUS_OPTIONS = [
@@ -119,24 +162,37 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Low', color: 'var(--color-priority-low)' },
 ];
 
+const URGENCY_OPTIONS = [
+  { value: 'critical', label: 'Critical', color: 'var(--color-urgency-critical)' },
+  { value: 'high', label: 'High', color: 'var(--color-urgency-high)' },
+  { value: 'medium', label: 'Medium', color: 'var(--color-urgency-medium)' },
+  { value: 'low', label: 'Low', color: 'var(--color-urgency-low)' },
+];
+
 const SORT_OPTIONS = [
   { value: 'updated_at', label: 'Last updated' },
   { value: 'created_at', label: 'Date created' },
   { value: 'priority', label: 'Priority' },
+  { value: 'urgency', label: 'Urgency' },
   { value: 'name', label: 'Name' },
 ];
 
-const GROUP_OPTIONS = [
+const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'status', label: 'Status' },
   { value: 'priority', label: 'Priority' },
+  { value: 'urgency', label: 'Urgency' },
+  { value: 'tags', label: 'Tags' },
+  { value: 'version', label: 'Version' },
   { value: 'none', label: 'No grouping' },
 ];
 
 function countActiveFilters(f: FilterState): number {
   let n = 0;
-  if (f.priorityFilter) n++;
-  if (f.statusFilter) n++;
-  if (f.tagFilter.trim()) n++;
+  if (f.priorityFilter.length > 0) n++;
+  if (f.statusFilter.length > 0) n++;
+  if (f.urgencyFilter.length > 0) n++;
+  if (f.tagFilter.length > 0) n++;
+  if (f.versionFilter.length > 0) n++;
   if (f.searchQuery.trim()) n++;
   if (f.dateFrom || f.dateTo) n++;
   return n;
@@ -145,7 +201,6 @@ function countActiveFilters(f: FilterState): number {
 function getDateChipLabel(f: FilterState): string | null {
   if (!f.dateFrom && !f.dateTo) return null;
   const t = new Date().toISOString().slice(0, 10);
-  // Check common presets
   if (f.dateFrom === t && f.dateTo === t) return 'Today';
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -171,6 +226,9 @@ export function TaskFilters({
   onSavePreset,
   onLoadPreset,
   onDeletePreset,
+  allTags,
+  allVersions,
+  onVersionManagerClick,
 }: TaskFiltersProps) {
   const { t } = useI18n();
   const [openPopover, setOpenPopover] = useState<string | null>(null);
@@ -182,10 +240,16 @@ export function TaskFilters({
   const toggle = (id: string) => setOpenPopover(prev => prev === id ? null : id);
   const close = () => setOpenPopover(null);
 
-  const statusLabel = STATUS_OPTIONS.find(o => o.value === filters.statusFilter)?.label;
-  const priorityLabel = PRIORITY_OPTIONS.find(o => o.value === filters.priorityFilter)?.label;
   const sortLabel = SORT_OPTIONS.find(o => o.value === filters.sortField)?.label;
   const groupLabel = GROUP_OPTIONS.find(o => o.value === filters.groupBy)?.label;
+
+  const tagOptions = useMemo(() => allTags.map(t => ({ value: t, label: t })), [allTags]);
+  const versionOptions = useMemo(() => allVersions.map(v => ({ value: v, label: v })), [allVersions]);
+
+  const subGroupOptions = useMemo(
+    () => GROUP_OPTIONS.filter(o => o.value !== filters.groupBy && o.value !== 'none').concat({ value: 'none', label: 'No sub-group' }),
+    [filters.groupBy],
+  );
 
   return (
     <div className="filter-bar">
@@ -207,85 +271,69 @@ export function TaskFilters({
 
       <div className="filter-bar-divider" />
 
-      {/* Status chip */}
-      <FilterPopover
+      {/* Status multi-select */}
+      <MultiSelectFilter
+        id="status"
+        label="Status"
+        options={STATUS_OPTIONS}
+        selected={filters.statusFilter}
+        onChange={v => onFilterChange('statusFilter', v)}
         isOpen={openPopover === 'status'}
+        onToggle={() => toggle('status')}
         onClose={close}
-        trigger={
-          <button
-            className={`filter-chip ${filters.statusFilter ? 'filter-chip--active' : ''}`}
-            onClick={() => toggle('status')}
-          >
-            {filters.statusFilter && (
-              <span className="filter-chip-dot" style={{ background: STATUS_OPTIONS.find(o => o.value === filters.statusFilter)?.color }} />
-            )}
-            <span className="filter-chip-label">{statusLabel ?? 'Status'}</span>
-            <ChevronIcon open={openPopover === 'status'} />
-          </button>
-        }
-        content={
-          <div className="filter-option-list">
-            <button
-              className={`filter-option ${!filters.statusFilter ? 'filter-option--selected' : ''}`}
-              onClick={() => { onFilterChange('statusFilter', ''); close(); }}
-            >
-              <span className="filter-option-label">All statuses</span>
-              {!filters.statusFilter && <CheckIcon />}
-            </button>
-            {STATUS_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                className={`filter-option ${filters.statusFilter === opt.value ? 'filter-option--selected' : ''}`}
-                onClick={() => { onFilterChange('statusFilter', opt.value); close(); }}
-              >
-                <span className="filter-option-dot" style={{ background: opt.color }} />
-                <span className="filter-option-label">{opt.label}</span>
-                {filters.statusFilter === opt.value && <CheckIcon />}
-              </button>
-            ))}
-          </div>
-        }
       />
 
-      {/* Priority chip */}
-      <FilterPopover
+      {/* Priority multi-select */}
+      <MultiSelectFilter
+        id="priority"
+        label="Priority"
+        options={PRIORITY_OPTIONS}
+        selected={filters.priorityFilter}
+        onChange={v => onFilterChange('priorityFilter', v)}
         isOpen={openPopover === 'priority'}
+        onToggle={() => toggle('priority')}
         onClose={close}
-        trigger={
-          <button
-            className={`filter-chip ${filters.priorityFilter ? 'filter-chip--active' : ''}`}
-            onClick={() => toggle('priority')}
-          >
-            {filters.priorityFilter && (
-              <span className="filter-chip-dot" style={{ background: PRIORITY_OPTIONS.find(o => o.value === filters.priorityFilter)?.color }} />
-            )}
-            <span className="filter-chip-label">{priorityLabel ?? 'Priority'}</span>
-            <ChevronIcon open={openPopover === 'priority'} />
-          </button>
-        }
-        content={
-          <div className="filter-option-list">
-            <button
-              className={`filter-option ${!filters.priorityFilter ? 'filter-option--selected' : ''}`}
-              onClick={() => { onFilterChange('priorityFilter', ''); close(); }}
-            >
-              <span className="filter-option-label">All priorities</span>
-              {!filters.priorityFilter && <CheckIcon />}
-            </button>
-            {PRIORITY_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                className={`filter-option ${filters.priorityFilter === opt.value ? 'filter-option--selected' : ''}`}
-                onClick={() => { onFilterChange('priorityFilter', opt.value); close(); }}
-              >
-                <span className="filter-option-dot" style={{ background: opt.color }} />
-                <span className="filter-option-label">{opt.label}</span>
-                {filters.priorityFilter === opt.value && <CheckIcon />}
-              </button>
-            ))}
-          </div>
-        }
       />
+
+      {/* Urgency multi-select */}
+      <MultiSelectFilter
+        id="urgency"
+        label="Urgency"
+        options={URGENCY_OPTIONS}
+        selected={filters.urgencyFilter}
+        onChange={v => onFilterChange('urgencyFilter', v)}
+        isOpen={openPopover === 'urgency'}
+        onToggle={() => toggle('urgency')}
+        onClose={close}
+      />
+
+      {/* Tags multi-select */}
+      {tagOptions.length > 0 && (
+        <MultiSelectFilter
+          id="tags"
+          label="Tags"
+          options={tagOptions}
+          selected={filters.tagFilter}
+          onChange={v => onFilterChange('tagFilter', v)}
+          isOpen={openPopover === 'tags'}
+          onToggle={() => toggle('tags')}
+          onClose={close}
+        />
+      )}
+
+      {/* Version multi-select */}
+      {versionOptions.length > 0 && (
+        <MultiSelectFilter
+          id="version"
+          label="Version"
+          options={versionOptions}
+          selected={filters.versionFilter}
+          onChange={v => onFilterChange('versionFilter', v)}
+          isOpen={openPopover === 'version'}
+          onToggle={() => toggle('version')}
+          onClose={close}
+        />
+      )}
 
       {/* Date chip */}
       <FilterPopover
@@ -314,21 +362,6 @@ export function TaskFilters({
         }
       />
 
-      {/* Tag input */}
-      <div className="filter-tag-wrap">
-        <input
-          className="filter-tag-input"
-          placeholder="Tag..."
-          value={filters.tagFilter}
-          onChange={e => onFilterChange('tagFilter', e.target.value)}
-        />
-        {filters.tagFilter && (
-          <button className="filter-tag-clear" onClick={() => onFilterChange('tagFilter', '')}>
-            <XIcon />
-          </button>
-        )}
-      </div>
-
       {activeCount > 0 && (
         <button className="filter-clear-all" onClick={onClearFilters}>
           Clear <span className="filter-clear-count">{activeCount}</span>
@@ -336,6 +369,26 @@ export function TaskFilters({
       )}
 
       <div className="filter-bar-spacer" />
+
+      {/* View mode toggle */}
+      <div className="filter-view-toggle">
+        <button
+          className={`filter-view-btn ${filters.viewMode === 'kanban' ? 'filter-view-btn--active' : ''}`}
+          onClick={() => onFilterChange('viewMode', 'kanban')}
+          title="Kanban view"
+        >
+          <KanbanIcon />
+        </button>
+        <button
+          className={`filter-view-btn ${filters.viewMode === 'eisenhower' ? 'filter-view-btn--active' : ''}`}
+          onClick={() => onFilterChange('viewMode', 'eisenhower')}
+          title="Eisenhower matrix"
+        >
+          <MatrixIcon />
+        </button>
+      </div>
+
+      <div className="filter-bar-divider" />
 
       {/* Sort chip */}
       <FilterPopover
@@ -398,11 +451,31 @@ export function TaskFilters({
                 {filters.groupBy === opt.value && <CheckIcon />}
               </button>
             ))}
+            {filters.groupBy !== 'none' && (
+              <>
+                <div className="filter-popover-section" style={{ marginTop: 'var(--space-2)' }}>Sub-group by</div>
+                {subGroupOptions.map(opt => (
+                  <button
+                    key={`sub-${opt.value}`}
+                    className={`filter-option ${filters.subGroupBy === opt.value ? 'filter-option--selected' : ''}`}
+                    onClick={() => { onFilterChange('subGroupBy', opt.value as GroupBy); close(); }}
+                  >
+                    <span className="filter-option-label">{opt.label}</span>
+                    {filters.subGroupBy === opt.value && <CheckIcon />}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         }
       />
 
       <div className="filter-bar-divider" />
+
+      {/* Version manager */}
+      <button className="filter-chip filter-chip--subtle" onClick={onVersionManagerClick} title="Manage versions">
+        <MilestoneIcon />
+      </button>
 
       {/* Views / Presets */}
       <FilterPopover

@@ -221,6 +221,107 @@ describe('hook stop (integration)', () => {
       rmSync(noCtxDir, { recursive: true, force: true });
     }
   });
+
+  it('derives task_slugs from transcript task commands', () => {
+    const transcriptPath = join(tmpDir, 'task-transcript.jsonl');
+    const content = [
+      toolUseLine('Read'),
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks log fix-auth \\"done\\""}}]}}',
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"_agent_context/state/web-dashboard.md"}}]}}',
+    ].join('\n');
+    writeFileSync(transcriptPath, content);
+
+    const input = JSON.stringify({ session_id: 'sess-tasks', transcript_path: transcriptPath });
+    runWithStdin('hook stop', input, tmpDir);
+
+    const state = readSleep(ctx);
+    const sessions = state.sessions as any[];
+    expect(sessions[0].task_slugs).toContain('fix-auth');
+    expect(sessions[0].task_slugs).toContain('web-dashboard');
+  });
+
+  it('derives task_slugs from bookmark task_slug values', () => {
+    // Pre-seed a bookmark with task_slug (as if agent ran `bookmark add --task`)
+    writeSleep(ctx, {
+      debt: 0,
+      sessions: [],
+      bookmarks: [{
+        id: 'bm_1',
+        message: 'Auth refactored',
+        salience: 2,
+        created_at: new Date().toISOString(),
+        session_id: null,
+        task_slug: 'fix-auth',
+      }],
+      triggers: [],
+      knowledge_access: {},
+      dashboard_changes: [],
+      compaction_log: [],
+    });
+
+    const input = JSON.stringify({ session_id: 'sess-bm', transcript_path: '/tmp/t.jsonl' });
+    runWithStdin('hook stop', input, tmpDir);
+
+    const state = readSleep(ctx);
+    const sessions = state.sessions as any[];
+    expect(sessions[0].task_slugs).toContain('fix-auth');
+    // Bookmark should be linked to session
+    expect((state.bookmarks as any[])[0].session_id).toBe('sess-bm');
+  });
+
+  it('merges task_slugs from both transcript and bookmarks', () => {
+    const transcriptPath = join(tmpDir, 'merged-transcript.jsonl');
+    writeFileSync(transcriptPath, '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks log task-a \\"progress\\""}}]}}');
+
+    writeSleep(ctx, {
+      debt: 0,
+      sessions: [],
+      bookmarks: [{
+        id: 'bm_merge',
+        message: 'Decision',
+        salience: 2,
+        created_at: new Date().toISOString(),
+        session_id: null,
+        task_slug: 'task-b',
+      }],
+      triggers: [],
+      knowledge_access: {},
+      dashboard_changes: [],
+      compaction_log: [],
+    });
+
+    const input = JSON.stringify({ session_id: 'sess-merge', transcript_path: transcriptPath });
+    runWithStdin('hook stop', input, tmpDir);
+
+    const state = readSleep(ctx);
+    const sessions = state.sessions as any[];
+    expect(sessions[0].task_slugs).toContain('task-a');
+    expect(sessions[0].task_slugs).toContain('task-b');
+    expect(sessions[0].task_slugs).toHaveLength(2);
+  });
+
+  it('deduplicates task_slugs on re-stop', () => {
+    const transcriptPath = join(tmpDir, 'restop-transcript.jsonl');
+    writeFileSync(transcriptPath, '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks log my-task \\"stuff\\""}}]}}');
+
+    const input = JSON.stringify({ session_id: 'sess-restop', transcript_path: transcriptPath });
+    runWithStdin('hook stop', input, tmpDir);
+    runWithStdin('hook stop', input, tmpDir);
+
+    const state = readSleep(ctx);
+    const sessions = state.sessions as any[];
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].task_slugs).toEqual(['my-task']);
+  });
+
+  it('sets empty task_slugs when no task references found', () => {
+    const input = JSON.stringify({ session_id: 'sess-notask', transcript_path: '/tmp/t.jsonl' });
+    runWithStdin('hook stop', input, tmpDir);
+
+    const state = readSleep(ctx);
+    const sessions = state.sessions as any[];
+    expect(sessions[0].task_slugs).toEqual([]);
+  });
 });
 
 // ─── hook session-start ────────────────────────────────────────────────────

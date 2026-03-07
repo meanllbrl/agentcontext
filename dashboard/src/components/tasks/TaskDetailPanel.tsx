@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { marked } from 'marked';
 import type { Task } from '../../hooks/useTasks';
 import { useUpdateTask, useAddTaskChangelog } from '../../hooks/useTasks';
+import { usePlanningVersions } from '../../hooks/useVersions';
 import { useI18n } from '../../context/I18nContext';
 import './TaskDetailPanel.css';
 
@@ -47,6 +48,7 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const { t } = useI18n();
   const updateTask = useUpdateTask();
   const addChangelog = useAddTaskChangelog();
+  const { data: versions } = usePlanningVersions();
   const [changelogEntry, setChangelogEntry] = useState('');
   const [mutationError, setMutationError] = useState<string | null>(null);
 
@@ -65,6 +67,20 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
   const handlePriorityChange = (priority: string) => {
     updateTask.mutate(
       { slug: task.slug, updates: { priority: priority as Task['priority'] } },
+      { onError: onMutationError },
+    );
+  };
+
+  const handleUrgencyChange = (urgency: string) => {
+    updateTask.mutate(
+      { slug: task.slug, updates: { urgency: urgency as Task['urgency'] } },
+      { onError: onMutationError },
+    );
+  };
+
+  const handleVersionChange = (version: string) => {
+    updateTask.mutate(
+      { slug: task.slug, updates: { version: version || null } },
       { onError: onMutationError },
     );
   };
@@ -123,6 +139,19 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
               </select>
             </PropertyRow>
 
+            <PropertyRow label="Urgency">
+              <select
+                className="field-select prop-select"
+                value={task.urgency}
+                onChange={e => handleUrgencyChange(e.target.value)}
+              >
+                <option value="low">{t('priority.low')}</option>
+                <option value="medium">{t('priority.medium')}</option>
+                <option value="high">{t('priority.high')}</option>
+                <option value="critical">{t('priority.critical')}</option>
+              </select>
+            </PropertyRow>
+
             {task.tags.length > 0 && (
               <PropertyRow label="Tags">
                 <div className="prop-tags">
@@ -138,6 +167,22 @@ export function TaskDetailPanel({ task, onClose }: TaskDetailPanelProps) {
                 <span className="prop-feature">{task.related_feature}</span>
               </PropertyRow>
             )}
+
+            <PropertyRow label="Version">
+              <select
+                className="field-select prop-select"
+                value={task.version ?? ''}
+                onChange={e => handleVersionChange(e.target.value)}
+              >
+                <option value="">No version</option>
+                {(versions ?? []).map(v => (
+                  <option key={v.version} value={v.version}>{v.version}</option>
+                ))}
+                {task.version && !(versions ?? []).some(v => v.version === task.version) && (
+                  <option value={task.version}>{task.version}</option>
+                )}
+              </select>
+            </PropertyRow>
 
             {task.description && (
               <PropertyRow label="Description">

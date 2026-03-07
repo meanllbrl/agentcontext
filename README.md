@@ -167,12 +167,12 @@ A local web UI for managing agent context visually. Built with React 19, served 
 <tr>
 <td width="50%">
 
-**Kanban board** with drag-and-drop, filtering by priority/tags, sorting, and grouping. Create tasks, update status, add changelog entries from a detail panel.
+**Kanban board** with drag-and-drop, multi-select filters (status, priority, urgency, tags, version) with type-ahead search, sorting, and grouping by any field. **Eisenhower matrix** view for priority-urgency quadrant planning. Create tasks, update status, add changelog entries from a Notion-style detail panel.
 
 </td>
 <td width="50%">
 
-**Core editor** with split-pane markdown editing and live preview. Knowledge manager with search and pin/unpin. Feature PRD viewer. SQL ER diagram preview.
+**Core editor** with split-pane markdown editing and live preview. Knowledge manager with search and pin/unpin. Feature PRD viewer. SQL ER diagram preview. **Version manager** for planning and releasing versions.
 
 </td>
 </tr>
@@ -200,11 +200,12 @@ Light and dark mode with system preference detection. Brand palette: purple-to-m
 agentcontext core changelog add           # Add changelog entry
 agentcontext core releases add            # Create release with auto-discovery
 agentcontext core releases add --yes      # Non-interactive, include all unreleased items
+agentcontext core releases add --ver v0.2.0 --summary "..." --status planning  # Planning version
 agentcontext core releases list           # List recent releases
 agentcontext core releases show <version> # Show release details
 ```
 
-Release creation auto-discovers unreleased tasks, features, and changelog entries. Back-populates `released_version` on included features.
+Release creation auto-discovers unreleased tasks, features, and changelog entries. Back-populates `released_version` on included features. Use `--status planning` to create a version placeholder without auto-discovery. Tasks can be assigned to planning versions, and the version manager in the dashboard provides a "Release" action to transition from planning to released.
 
 ### Tasks
 
@@ -213,13 +214,13 @@ agentcontext tasks list                   # List active tasks (excludes complete
 agentcontext tasks list --all             # List all tasks
 agentcontext tasks list --status in_progress  # Filter by status
 agentcontext tasks create <name>          # Create a task
-agentcontext tasks create <name> --priority high --status in_progress --tags "api,auth"
+agentcontext tasks create <name> --priority high --status in_progress --tags "api,auth" --urgency high --version v0.2.0
 agentcontext tasks log <name> <content>   # Log progress (newest first)
 agentcontext tasks insert <name> <section> <content>  # Insert into a named section
 agentcontext tasks complete <name>        # Mark completed
 ```
 
-All flags (`--description`, `--priority`, `--status`, `--tags`, `--why`) are optional. Defaults to medium priority and todo status, so the command works non-interactively for agent use.
+All flags (`--description`, `--priority`, `--status`, `--tags`, `--why`, `--urgency`, `--version`) are optional. Defaults to medium priority/urgency and todo status, so the command works non-interactively for agent use.
 
 ### Features
 

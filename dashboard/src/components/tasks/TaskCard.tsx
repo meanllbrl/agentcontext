@@ -19,7 +19,10 @@ export function TaskCard({ task, onClick, onDragStart }: TaskCardProps) {
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
     >
       <div className="task-card-header">
-        <span className={`priority-dot priority-dot--${task.priority}`} title={task.priority} />
+        <span className={`priority-dot priority-dot--${task.priority}`} title={`Priority: ${task.priority}`} />
+        {task.urgency && task.urgency !== 'medium' && (
+          <span className={`urgency-bar urgency-bar--${task.urgency}`} title={`Urgency: ${task.urgency}`} />
+        )}
         <span className="task-card-name">{task.name}</span>
       </div>
       {task.description && (

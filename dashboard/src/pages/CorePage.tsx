@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useI18n } from '../context/I18nContext';
 import { SqlPreview } from '../components/core/SqlPreview';
+import { JsonPreview } from '../components/core/JsonPreview';
+import { MarkdownPreview } from '../components/core/MarkdownPreview';
 import './CorePage.css';
 
 interface CoreFile {
@@ -19,6 +21,10 @@ interface CoreFileDetail {
   sections?: string[];
   sectionContents?: Record<string, string>;
   data?: unknown;
+}
+
+function hasPreview(filename: string): boolean {
+  return filename.endsWith('.sql') || filename.endsWith('.json') || filename.endsWith('.md');
 }
 
 export function CorePage() {
@@ -67,6 +73,28 @@ export function CorePage() {
 
   const files = filesData?.files ?? [];
 
+  const renderContent = () => {
+    if (!selected || !fileDetail) return null;
+
+    if (viewTab === 'preview') {
+      if (selected.endsWith('.sql') && fileDetail.content) {
+        return <SqlPreview content={fileDetail.content} />;
+      }
+      if (selected.endsWith('.json') && fileDetail.data) {
+        return <JsonPreview data={fileDetail.data} filename={selected} />;
+      }
+      if (selected.endsWith('.md') && fileDetail.content) {
+        return <MarkdownPreview content={fileDetail.content} frontmatter={fileDetail.frontmatter} />;
+      }
+    }
+
+    return (
+      <pre className="core-viewer-content">
+        {fileDetail.content ?? JSON.stringify(fileDetail.data, null, 2)}
+      </pre>
+    );
+  };
+
   return (
     <div className="core-page">
       <h1 className="page-title">{t('core.title')}</h1>
@@ -93,7 +121,7 @@ export function CorePage() {
               <div className="core-viewer-header">
                 <h2 className="core-viewer-title">{fileDetail.filename}</h2>
                 <div className="core-viewer-actions">
-                  {selected.endsWith('.sql') && (
+                  {hasPreview(selected) && (
                     <div className="core-tabs">
                       <button
                         className={`core-tab ${viewTab === 'file' ? 'core-tab--active' : ''}`}
@@ -114,13 +142,7 @@ export function CorePage() {
                   )}
                 </div>
               </div>
-              {selected.endsWith('.sql') && viewTab === 'preview' && fileDetail.content ? (
-                <SqlPreview content={fileDetail.content} />
-              ) : (
-                <pre className="core-viewer-content">
-                  {fileDetail.content ?? JSON.stringify(fileDetail.data, null, 2)}
-                </pre>
-              )}
+              {renderContent()}
             </div>
           )}
           {selected && isEditing && (

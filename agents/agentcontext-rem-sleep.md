@@ -29,9 +29,9 @@ Sleep debt is tracked automatically via hooks. The Stop hook records each sessio
 
 The sleep state at `_agent_context/state/.sleep.json` contains:
 
-**Sessions** (`sessions` array, LIFO): Each session record has `session_id`, `transcript_path`, `stopped_at`, `last_assistant_message`, `change_count`, `tool_count`, `score`.
+**Sessions** (`sessions` array, LIFO): Each session record has `session_id`, `transcript_path`, `stopped_at`, `last_assistant_message`, `change_count`, `tool_count`, `score`, `task_slugs`. Use `task_slugs` for direct task linkage -- these are auto-extracted from transcript tool calls (e.g. `tasks log`, `tasks insert`, task file reads) AND from explicitly tagged bookmarks.
 
-**Bookmarks** (`bookmarks` array, LIFO): Tagged important moments from active work. Each has `id`, `message`, `salience` (1-3), `created_at`, `session_id`. Process bookmarks FIRST, ordered by salience (★★★ -> ★★ -> ★).
+**Bookmarks** (`bookmarks` array, LIFO): Tagged important moments from active work. Each has `id`, `message`, `salience` (1-3), `created_at`, `session_id`, `task_slug`. Process bookmarks FIRST, ordered by salience (★★★ -> ★★ -> ★). Use `task_slug` to route bookmark content to the correct task file.
 
 **Triggers** (`triggers` array): Contextual reminders that fire when matching tasks are active. Each has `id`, `when`, `remind`, `fired_count`, `max_fires`. Expire triggers past `max_fires` during anti-bloat.
 
@@ -87,13 +87,14 @@ Identify: what changed? what was decided? what was learned? what failed?
 
 **Every piece of work must be linked to a task.** This is how knowledge persists across sessions.
 
-1. **List active tasks**: `ls _agent_context/state/*.md` to see all task files.
-2. **Cross-reference**: For each session's work, determine which task it belongs to.
-   - Check if bookmarks mention a task name
-   - Check if `last_assistant_message` references a task
-   - Match the nature of the work (feature, bug fix, refactor) against task descriptions
-3. **If work is linked to an existing task**: Log progress to that task in Step 3.
-4. **If significant work has NO matching task**: Create one.
+1. **Read `task_slugs` from each session record.** These are reliable -- auto-extracted from transcript tool calls AND from explicitly tagged bookmarks. This is your primary signal.
+2. **For sessions WITH `task_slugs`**: Read those task files. Log progress to each in Step 3 via `agentcontext tasks log <name> "what was done"`. Always log progress even if the task isn't done yet.
+3. **For sessions WITHOUT `task_slugs`** (fallback heuristics):
+   - Check if `last_assistant_message` references a task name
+   - Check if bookmarks mention a task
+   - Match the nature of the work against task descriptions
+4. **Version check**: If a completed task has a `version` field, note which planning version it belongs to for Step 6 readiness check.
+5. **If significant work has NO matching task**: Create one.
    ```bash
    agentcontext tasks create "<descriptive-name>" --status in_progress --priority medium --tags "<relevant-tags>"
    agentcontext tasks log "<descriptive-name>" "Created during consolidation: <summary of what was done>"
@@ -136,6 +137,26 @@ After understanding sessions (Step 1) and linking tasks (Step 1b), scan across A
 
 Only extract patterns with clear evidence from multiple sessions. Do not speculate. If uncertain, create a bookmark noting the potential pattern for future observation rather than immediately codifying it.
 
+### Step 1d: Task Completion Detection (MANDATORY)
+
+After linking sessions to tasks, **proactively evaluate whether each linked task is complete.** Tasks stuck in "todo" or "in_progress" when the work is done are a failure state -- future agents waste time on work that's already finished.
+
+For each task linked to consolidated sessions:
+
+1. **Read the full task file** (acceptance criteria, user stories, changelog).
+2. **Evaluate completion evidence:**
+   - All acceptance criteria marked `[x]`?
+   - Session summaries or bookmarks contain completion signals ("completed", "all tests passing", "shipped", "merged", "all criteria met")?
+   - The nature of recent work (final polish, documentation updates, cleanup) suggests the task is done?
+3. **If complete**: Mark it done.
+   ```bash
+   agentcontext tasks complete <name> "Completed: <summary of what was achieved>"
+   ```
+4. **If partially done but progressing**: Log progress, keep status as-is.
+5. **If in-progress but stalled** (no work in recent sessions): Note in consolidation report for user awareness.
+
+Report all status changes in Step 7. This is how the task list stays accurate.
+
 ### Step 2: Determine What to Update
 
 Use this decision tree:
@@ -150,6 +171,7 @@ Use this decision tree:
 | **Feature work** | Consolidate task content into feature PRD (see Step 5) | Feature PRD sections (user_stories, criteria, constraints, technical_details) |
 | **Deep research completed** | `agentcontext knowledge create <topic>` (use standard tags) or Edit existing | Memory (reference to knowledge file) |
 | **Deployment / release** | `agentcontext core releases add` | Changelog |
+| **Version planning** | `agentcontext core releases add --ver vX.Y.Z --summary "..." --status planning` | Update RELEASES.json |
 | **Tech stack change** | Edit `_agent_context/core/4.tech_stack.md` directly + update its `summary` frontmatter | Memory (Technical Decisions) |
 | **Style/branding change** | Edit `_agent_context/core/3.style_guide_and_branding.md` directly + update its `summary` frontmatter | — |
 | **New warning / non-negotiable** | Soul file (Warnings section) | — |
@@ -262,6 +284,15 @@ agentcontext features insert <name> changelog "Consolidated from task: [summary]
 
 The feature PRD should read like polished product documentation, not a raw task dump. Summarize, deduplicate, and organize.
 
+### Step 5b: Version Readiness Check
+
+After task completion detection (Step 1d), check if any planning versions are ready for release:
+
+1. Read `_agent_context/core/RELEASES.json` for entries with `status: planning`
+2. For each planning version, check if all tasks assigned to that version (tasks with `version` field matching) are completed
+3. If all tasks for a version are done, note it as "ready for release" in the Step 7 consolidation report
+4. Do NOT auto-release. Report readiness and let the user decide when to release.
+
 ### Step 6: Mark Sleep Complete
 
 After all consolidation updates are done, reset the sleep debt:
@@ -291,8 +322,15 @@ Return a brief report to the main agent:
 - Soul file: "offline mode" constraint needs priority ranking from user
 
 ### Task Linkage
-- Session sess-abc: linked to task `fix-auth-bug` (logged progress)
-- Session sess-def: no matching task, created `refactor-api-routes`
+- Session sess-abc [task_slugs: fix-auth-bug]: logged progress to `fix-auth-bug`
+- Session sess-def [task_slugs: none]: no matching task, created `refactor-api-routes`
+
+### Task Status Changes
+- `fix-auth-bug`: completed (all acceptance criteria met, tests passing)
+- `refactor-api-routes`: created as in_progress
+
+### Version Readiness
+- `v0.2.0`: all 3 assigned tasks completed, ready for release
 
 ### Anti-Bloat Actions
 - memory: Extracted old API migration notes to knowledge/api-v1-migration.md (was 180 lines, now 95)

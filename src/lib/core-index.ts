@@ -63,6 +63,6 @@ export function buildCoreIndex(contextRoot: string): CoreFileEntry[] {
     }
   }
 
-  entries.sort((a, b) => a.filename.localeCompare(b.filename));
+  entries.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
   return entries;
 }

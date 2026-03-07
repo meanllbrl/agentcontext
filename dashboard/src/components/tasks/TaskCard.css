@@ -50,6 +50,25 @@
   background: var(--color-priority-low);
 }
 
+.urgency-bar {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.urgency-bar--critical {
+  background: var(--color-urgency-critical);
+}
+
+.urgency-bar--high {
+  background: var(--color-urgency-high);
+}
+
+.urgency-bar--low {
+  background: var(--color-urgency-low);
+}
+
 .task-card-name {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);

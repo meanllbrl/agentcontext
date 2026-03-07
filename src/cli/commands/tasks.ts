@@ -63,12 +63,14 @@ id: "{{ID}}"
 name: "{{NAME}}"
 description: "{{DESCRIPTION}}"
 priority: "{{PRIORITY}}"
+urgency: "{{URGENCY}}"
 status: "{{STATUS}}"
 created_at: "{{DATE}}"
 updated_at: "{{DATE}}"
 tags: {{TAGS}}
 parent_task: null
 related_feature: null
+version: {{VERSION}}
 ---
 
 ## Why
@@ -169,10 +171,12 @@ export function registerTasksCommand(program: Command): void {
     .description('Create a new task')
     .option('-d, --description <desc>', 'Task description')
     .option('-p, --priority <priority>', 'Priority (critical, high, medium, low)')
+    .option('-u, --urgency <level>', 'Urgency (critical, high, medium, low)')
     .option('-s, --status <status>', 'Status (todo, in_progress, completed)')
     .option('-t, --tags <tags>', 'Comma-separated tags')
     .option('-w, --why <why>', 'Why is this task needed?')
-    .action(async (name: string, opts: { description?: string; priority?: string; status?: string; tags?: string; why?: string }) => {
+    .option('-v, --version <version>', 'Version/milestone')
+    .action(async (name: string, opts: { description?: string; priority?: string; urgency?: string; status?: string; tags?: string; why?: string; version?: string }) => {
       const dir = getStateDir();
       const slug = slugify(name);
       const filePath = join(dir, `${slug}.md`);
@@ -191,6 +195,12 @@ export function registerTasksCommand(program: Command): void {
         return;
       }
 
+      const urgency = opts.urgency || 'medium';
+      if (!validPriorities.includes(urgency)) {
+        error(`Urgency must be one of: ${validPriorities.join(', ')}`);
+        return;
+      }
+
       const status = opts.status || 'todo';
       if (!validStatuses.includes(status)) {
         error(`Status must be one of: ${validStatuses.join(', ')}`);
@@ -200,6 +210,7 @@ export function registerTasksCommand(program: Command): void {
       const description = opts.description || name;
       const tags = opts.tags ? opts.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
       const why = opts.why || '';
+      const version = opts.version || null;
 
       const template = getTaskTemplate();
       const content = template
@@ -207,10 +218,12 @@ export function registerTasksCommand(program: Command): void {
         .replaceAll('{{NAME}}', name)
         .replaceAll('{{DESCRIPTION}}', description)
         .replaceAll('{{PRIORITY}}', priority)
+        .replaceAll('{{URGENCY}}', urgency)
         .replaceAll('{{STATUS}}', status)
         .replaceAll('{{TAGS}}', JSON.stringify(tags))
         .replaceAll('{{DATE}}', today())
-        .replaceAll('{{WHY}}', why || '(To be defined)');
+        .replaceAll('{{WHY}}', why || '(To be defined)')
+        .replaceAll('{{VERSION}}', version ? `"${version}"` : 'null');
 
       writeFileSync(filePath, content, 'utf-8');
       success(`Task created: ${slug}.md`);

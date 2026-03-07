@@ -43,7 +43,7 @@ export async function handleCoreList(
         type: frontmatter.type ?? (e.name.endsWith('.json') ? 'json' : e.name.endsWith('.sql') ? 'sql' : 'markdown'),
       };
     })
-    .sort((a, b) => a.filename.localeCompare(b.filename));
+    .sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
 
   sendJson(res, 200, { files });
 }

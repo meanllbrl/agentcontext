@@ -160,7 +160,7 @@ Fires before the agent sees your first message. Compiles and injects a full cont
 5. **Contextual reminders** from triggers matching active task names, tags, or bookmark text
 6. **Sleep state** with debt level, sessions since last sleep, consolidation history, and per-session records
 7. **Recent changelog** (last 3 entries from CHANGELOG.json)
-8. **Latest release** with version, date, summary, and included task/feature counts
+8. **Upcoming versions** (planning releases) and **latest release** with version, date, summary, and included task/feature counts
 9. **Features** with the Why, related tasks, and latest changelog entry per feature
 10. **Knowledge index** with slug, description, tags, and staleness indicators (30+ days without access)
 11. **Warm knowledge** for recently accessed or task-relevant files (first paragraph preview)
@@ -361,7 +361,9 @@ The CLI and hooks handle the agent side. But context is a shared layer, and the 
 
 ### What it provides
 
-**Kanban board.** Tasks displayed as cards across columns (To Do, In Progress, Completed). Drag a card to change status. Filter by priority or tags, sort by date or name, group by status or priority. Click a task to open a detail panel for editing fields and adding changelog entries.
+**Kanban board.** Tasks displayed as cards across columns (To Do, In Progress, Completed). Drag a card to change status. Multi-select filters for status, priority, urgency, tags, and version, with type-ahead search for long lists. Sort by date, priority, urgency, or name. Group by status, priority, urgency, tags, or version, with optional sub-grouping. Click a task to open a Notion-style detail panel with properties block, rendered markdown body, and changelog.
+
+**Eisenhower matrix.** A 2x2 priority-urgency quadrant view (Do First, Schedule, Delegate, Don't Do). Automatically excludes completed tasks so the matrix focuses on actionable work. Toggle between Kanban and matrix views from the filter bar.
 
 **Core file editor.** All core files listed in a sidebar. Markdown files open in a split-pane editor: textarea on the left, live preview on the right. JSON files display formatted. SQL files (like `5.data_structures.sql`) render a visual ER diagram showing entities, fields, types, and foreign key relationships.
 
@@ -385,13 +387,17 @@ The server uses Node.js native `http` module with zero new runtime dependencies.
 
 The design uses a custom CSS system with design tokens (purple-to-magenta brand gradient, HSL colors, 4px grid, light/dark mode with system preference detection). No CSS framework. The Visby CF font is the brand font with a system font fallback for environments where it is not installed.
 
+**Version manager.** A full-width modal showing planning and released versions with task counts and status badges. Planning versions have a "Release" button that transitions their status and sets the release date. Create new planning versions directly from the dashboard. Versions and releases are unified in `RELEASES.json` (a version is a release entry with `status: planning`).
+
 ### Release management
 
-The `core releases add` command auto-discovers unreleased items when creating a release: completed tasks without a `released_version`, active features without a `released_version`, and changelog entries since the last release. In interactive mode, you select which items to include via checkboxes. In non-interactive mode (`--yes`), everything unreleased is included automatically.
+Versions and releases live in a single `RELEASES.json` file. A "version" is a release entry with `status: planning`. When released, the status changes to `released` and the date is set automatically. This eliminates the need for a separate versioning system.
 
-After recording the release, the command back-populates `released_version` on included features. This means the next release correctly excludes already-released items. `core releases list` and `core releases show` let you review release history.
+The `core releases add` command auto-discovers unreleased items when creating a release: completed tasks without a `released_version`, active features without a `released_version`, and changelog entries since the last release. In interactive mode, you select which items to include via checkboxes. In non-interactive mode (`--yes`), everything unreleased is included automatically. Use `--status planning` to create a version placeholder without auto-discovery, with empty task/feature/changelog arrays.
 
-The snapshot includes a "Latest Release" section so the agent always knows what was last shipped.
+After recording a released entry, the command back-populates `released_version` on included features. This means the next release correctly excludes already-released items. `core releases list` and `core releases show` let you review release history.
+
+The snapshot includes both "Upcoming Versions" (planning entries) and "Latest Release" (most recent released entry) so the agent always knows what is planned and what was last shipped. Tasks can be assigned to planning versions via the `version` field, and the sleep agent checks whether all tasks for a planning version are complete during consolidation.
 
 ## CLI Design
 
@@ -447,6 +453,8 @@ Every design choice was deliberate. Here is what I chose, what I chose it over, 
 | **execFileSync over execSync** | Shell string interpolation | File paths with special characters (`$`, spaces, backticks) are safe with array arguments. Never regress to execSync with string interpolation in hooks. |
 | **PreCompact audit trail** | Ignoring context compaction | When the agent loses context mid-session, understanding when and why helps debug behavior gaps. 20-entry cap prevents unbounded growth. |
 | **Pattern extraction in sleep** | Manual knowledge curation only | Recurring patterns across sessions (user preferences, workflow sequences, errors) are automatically surfaced by the sleep agent and written to memory or knowledge files. |
+| **Unified versions/releases** | Separate VERSIONS.json | A version is just a release that hasn't shipped yet. One file, one lifecycle (`planning` -> `released`). Less complexity, less code, and the sleep agent can check version readiness during consolidation. |
+| **Eisenhower matrix excludes completed** | Show all tasks | The matrix is for deciding what to do next. Completed tasks are noise in that context. Kanban still shows them for a complete project view. |
 
 ---
 

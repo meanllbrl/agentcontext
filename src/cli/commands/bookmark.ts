@@ -21,8 +21,9 @@ export function registerBookmarkCommand(program: Command): void {
     .command('add')
     .argument('<message...>', 'What to remember')
     .option('-s, --salience <level>', 'Importance level (1=notable, 2=significant, 3=critical)', '2')
+    .option('-t, --task <slug>', 'Associated task slug')
     .description('Create a bookmark')
-    .action((messageParts: string[], opts: { salience: string }) => {
+    .action((messageParts: string[], opts: { salience: string; task?: string }) => {
       const salience = parseInt(opts.salience, 10);
       if (![1, 2, 3].includes(salience)) {
         error('Salience must be 1, 2, or 3.');
@@ -44,10 +45,12 @@ export function registerBookmarkCommand(program: Command): void {
         salience: salience as 1 | 2 | 3,
         created_at: new Date().toISOString(),
         session_id: null, // linked by stop hook later
+        task_slug: opts.task ?? null,
       });
 
       writeSleepState(root, state);
-      success(`${SALIENCE_LABELS[salience]} Bookmarked: ${message}`);
+      const taskRef = opts.task ? chalk.dim(` (task: ${opts.task})`) : '';
+      success(`${SALIENCE_LABELS[salience]} Bookmarked: ${message}${taskRef}`);
     });
 
   // --- list ---
@@ -67,7 +70,8 @@ export function registerBookmarkCommand(program: Command): void {
       for (const b of state.bookmarks) {
         const stars = SALIENCE_LABELS[b.salience] || '★';
         const time = chalk.dim(b.created_at.split('T')[0]);
-        console.log(`  ${stars} ${time} ${b.message}`);
+        const taskRef = b.task_slug ? chalk.cyan(` [${b.task_slug}]`) : '';
+        console.log(`  ${stars} ${time} ${b.message}${taskRef}`);
       }
     });
 

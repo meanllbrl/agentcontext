@@ -21,9 +21,10 @@ Users need a visual interface to manage agent context without using the terminal
 - [ ] As a user, I want to run `agentcontext dashboard` and have a web UI open in my browser so that I can manage my project context visually
 - [ ] As a user, I want to see a Kanban board of my tasks so that I can track work status at a glance
 - [ ] As a user, I want to drag tasks between columns (todo, in_progress, completed) so that I can update status without typing commands
-- [ ] As a user, I want to filter tasks by status, priority, tags, text search, and date range so that I can find specific tasks quickly
-- [ ] As a user, I want to group tasks by status, priority, or see them ungrouped so that I can organize the board to my preference
-- [ ] As a user, I want to create new tasks from the dashboard with name, description, priority, and tags so that I can add work without the CLI
+- [ ] As a user, I want to filter tasks by status, priority, urgency, tags, version, text search, and date range so that I can find specific tasks quickly
+- [ ] As a user, I want to group tasks by status, priority, urgency, version, or tags so that I can organize the board to my preference
+- [ ] As a user, I want to switch between Kanban and Eisenhower Matrix views so that I can see tasks by prioritization quadrant
+- [ ] As a user, I want to create new tasks from the dashboard with name, description, priority, urgency, version, and tags so that I can add work without the CLI
 - [ ] As a user, I want to update task fields (status, priority, description) and add changelog entries from a detail panel so that I can keep tasks current
 - [ ] As a user, I want to see the agent character in the top-left corner showing sleep state (alert, drowsy, sleepy, must sleep) so that I know when consolidation is needed
 - [ ] As a user, I want a dedicated sleep page showing debt level, session history, and dashboard changes so that I can track sleep cycles in a beautiful UI
@@ -31,6 +32,8 @@ Users need a visual interface to manage agent context without using the terminal
 - [ ] As a user, I want to browse, search, and view knowledge files so that I can find stored knowledge quickly
 - [ ] As a user, I want to pin and unpin knowledge files from the dashboard so that important knowledge appears in the snapshot
 - [ ] As a user, I want to view feature PRDs with all their sections (Why, User Stories, Acceptance Criteria, etc.) so that I can review feature specs
+- [ ] As a user, I want to manage planning versions alongside released versions in a Version Manager so that I can track what's coming next
+- [ ] As a user, I want to promote a planning version to released from the Version Manager so that I can track release milestones
 - [ ] As a user, I want all manual changes I make in the dashboard to be recorded in the sleep file so that the agent consolidates them during the next sleep cycle
 - [ ] As a user, I want light and dark mode (with system preference detection) so that the UI matches my OS settings
 - [ ] As a user, I want multi-language support (English initially, i18n-ready) so that the dashboard can be localized in the future
@@ -38,19 +41,23 @@ Users need a visual interface to manage agent context without using the terminal
 ## Acceptance Criteria
 
 ### Kanban Board
-- [ ] Board shows three columns by default: To Do, In Progress, Completed
-- [ ] Tasks can be dragged between columns, status updates on drop
-- [ ] Filter by status (todo/in_progress/completed) works
-- [ ] Filter by priority (critical/high/medium/low) works
-- [ ] Text search filters by task name and description
-- [ ] Date range filter (from/to) on created_at or updated_at field works
-- [ ] Filter state persists across page reloads via localStorage
-- [ ] Clear Filters button resets filter fields but preserves sort and groupBy
-- [ ] Filter by tag (text search) works
-- [ ] Sort by updated date, created date, priority, name works
-- [ ] Group by status (default), priority, or no grouping works
-- [ ] Create task modal: name (required), description, priority selector, comma-separated tags
-- [ ] Detail panel slides in from right on task click: shows all fields, status/priority dropdowns, changelog with add entry form
+- [x] Board shows three columns by default: To Do, In Progress, Completed
+- [x] Tasks can be dragged between columns, status updates on drop
+- [x] Filter by status (todo/in_progress/completed) works
+- [x] Filter by priority (critical/high/medium/low) works
+- [x] Text search filters by task name and description
+- [x] Date range filter (from/to) on created_at or updated_at field works
+- [x] Filter state persists across page reloads via localStorage
+- [x] Clear Filters button resets filter fields but preserves sort and groupBy
+- [x] Filter by tag (multi-select with type-ahead search)
+- [x] Sort by updated date, created date, priority, name works
+- [x] Group by status (default), priority, urgency, version, or tags (multi-column)
+- [x] Sub-grouping within columns (collapsible SubGroupSection with count)
+- [x] Create task modal: name (required), description, priority, urgency, version, tags
+- [x] Detail panel slides in from right on task click: shows all fields, status/priority/urgency/version dropdowns, changelog with add entry form
+- [x] Eisenhower Matrix view: 2×2 priority×urgency grid, excludes completed tasks
+- [x] MultiSelectFilter: checkbox-based, type-ahead search shown when >5 options, All/None toggle
+- [x] Version Manager: planning/released sections, stats header, Release button to promote
 
 ### Sleep State
 - [ ] Agent avatar (diamond logo) in header: full color when alert, dims progressively, pulses with "zzz" when must_sleep
@@ -74,8 +81,9 @@ Users need a visual interface to manage agent context without using the terminal
 - [ ] Pin/unpin records change in .sleep.json dashboard_changes
 
 ### Features
-- [ ] Feature list shows all features with slug, status badge, tags
-- [ ] Clicking shows full PRD: all sections (Why, User Stories, Acceptance Criteria, Constraints, Technical Details, Notes, Changelog)
+- [x] Feature list shows all features with slug, status badge, tags
+- [x] Clicking shows full PRD: all sections (Why, User Stories, Acceptance Criteria, Constraints, Technical Details, Notes, Changelog)
+- [x] File/Preview tab toggle: File shows raw markdown, Preview renders as HTML (same pattern as Core and Knowledge pages)
 
 ### Change Tracking
 - [ ] Every create/update action via dashboard API writes to .sleep.json dashboard_changes array
@@ -103,6 +111,9 @@ Users need a visual interface to manage agent context without using the terminal
 ## Constraints & Decisions
 <!-- LIFO: newest decision at top -->
 
+- **[2026-03-07]** Versions unified with Releases: no separate VERSIONS.json. Planning-stage versions are ReleaseEntries with `status: 'planning'`. Backward compat: entries without status field treated as released. One schema, one file, UI handles the separation.
+- **[2026-03-07]** Eisenhower Matrix excludes completed tasks: it's a prioritization view for future work, not a history. Completed tasks remain visible in the Kanban "Completed" column.
+- **[2026-03-07]** MultiSelectFilter search threshold: type-ahead search input shown when >5 options (list too long to scan). Hidden when ≤5 options.
 - **[2026-02-25]** Agent character: user will provide custom design later. Using brand diamond logo as placeholder with opacity/animation based on sleep level.
 - **[2026-02-25]** Multi-language: i18n infrastructure built (I18nContext with t() function and translation keys), English only for v1. Adding languages means adding translation objects.
 - **[2026-02-25]** No router library: 5 pages managed by state-based page switcher. No deep linking needed. Add wouter (~1.5KB) later if URL routing is wanted.
@@ -133,7 +144,7 @@ Users need a visual interface to manage agent context without using the terminal
 - `dashboard/src/components/tasks/KanbanBoard.tsx` - Main board with filtering/sorting/grouping
 
 ### API Endpoints
-17 endpoints covering: tasks (5), sleep (2), core (3), knowledge (3), features (2), changelog (1), releases (1), health (1). All mutating endpoints call recordDashboardChange().
+~20 endpoints covering: tasks (5), sleep (2), core (3), knowledge (3), features (2), changelog (1), releases (3 — list/show/add with planning support), health (1). Versions API (was 3 endpoints) deleted; versions now handled via releases routes. All mutating endpoints call recordDashboardChange().
 
 ### Build Pipeline
 1. `npm run build:dashboard` - Vite builds React app to dashboard/dist/
@@ -152,6 +163,19 @@ Users need a visual interface to manage agent context without using the terminal
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-03-07 - Dashboard Phase 4c + Versions-as-Releases Unification
+- Eisenhower Matrix view: 2×2 priority×urgency grid, excludes completed tasks, quadrant color tokens
+- MultiSelectFilter: checkbox-based multi-select with type-ahead search (appears when >5 options), All/None toggle
+- SubGroupSection: collapsible nested sections within Kanban columns (chevron, dot, label, count)
+- urgency field (critical/high/medium/low, default medium) and version field added to tasks (CLI + API + UI)
+- Group-by-urgency, group-by-version, group-by-tags (tasks appear in each applicable tag column)
+- Versions unified with Releases: VERSIONS.json deleted, ReleaseEntry extended with status field (planning|released, backward compat)
+- VersionManager redesigned: 680px modal, stats header, planning/released sections, Release button
+- CLI: core releases add --status planning; Snapshot: Upcoming Versions section for planning entries
+- File/Preview tabs: Core, Knowledge, Features pages all have MarkdownPreview + JsonPreview components
+- Task slug extraction regex tightened (false positive fix — now anchored to JSON keys only)
+- 468 tests passing
 
 ### 2026-02-27 - Project-Scoped localStorage + Zoom Controls + SubagentStart Fix
 - Project-scoped localStorage: usePersistedState keys scoped by project hash (agentcontext:{projectId}:{key}); legacy keys auto-migrated; theme remains global

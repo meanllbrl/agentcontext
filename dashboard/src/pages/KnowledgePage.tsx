@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useKnowledgeList, useKnowledge, useToggleKnowledgePin } from '../hooks/useKnowledge';
 import { useI18n } from '../context/I18nContext';
+import { MarkdownPreview } from '../components/core/MarkdownPreview';
 import './KnowledgePage.css';
 
 export function KnowledgePage() {
@@ -9,6 +10,7 @@ export function KnowledgePage() {
   const togglePin = useToggleKnowledgePin();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [viewTab, setViewTab] = useState<'file' | 'preview'>('preview');
 
   const { data: detail } = useKnowledge(selected ?? '');
 
@@ -46,7 +48,7 @@ export function KnowledgePage() {
             <button
               key={entry.slug}
               className={`knowledge-card ${selected === entry.slug ? 'knowledge-card--active' : ''}`}
-              onClick={() => setSelected(entry.slug)}
+              onClick={() => { setSelected(entry.slug); setViewTab('preview'); }}
             >
               <div className="knowledge-card-header">
                 <span className="knowledge-card-name">{entry.name}</span>
@@ -79,8 +81,28 @@ export function KnowledgePage() {
             <div className="core-viewer">
               <div className="core-viewer-header">
                 <h2 className="core-viewer-title">{detail.name}</h2>
+                <div className="core-viewer-actions">
+                  <div className="core-tabs">
+                    <button
+                      className={`core-tab ${viewTab === 'file' ? 'core-tab--active' : ''}`}
+                      onClick={() => setViewTab('file')}
+                    >
+                      File
+                    </button>
+                    <button
+                      className={`core-tab ${viewTab === 'preview' ? 'core-tab--active' : ''}`}
+                      onClick={() => setViewTab('preview')}
+                    >
+                      Preview
+                    </button>
+                  </div>
+                </div>
               </div>
-              <pre className="core-viewer-content">{detail.content}</pre>
+              {viewTab === 'preview' && detail.content ? (
+                <MarkdownPreview content={detail.content} />
+              ) : (
+                <pre className="core-viewer-content">{detail.content}</pre>
+              )}
             </div>
           )}
         </div>

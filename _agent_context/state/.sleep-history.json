@@ -1,5 +1,20 @@
 [
   {
+    "date": "2026-03-07",
+    "consolidated_at": "2026-03-07T18:46:13.280Z",
+    "summary": "Consolidated 4 sessions: Dashboard Phase 4b/4c (Eisenhower Matrix, MultiSelectFilter type-ahead, SubGroupSection, urgency+version fields, group-by-version/urgency/tags), Versions-as-Releases unification (VERSIONS.json deleted, ReleaseEntry.status field, planning/released VersionManager), Features/Core/Knowledge File/Preview tabs, task slug regex fix, README+DEEP-DIVE 7-hook update. 6 changelog entries added. web-dashboard task logged (4 entries). Feature PRD acceptance criteria updated. Memory condensed to 176 lines.",
+    "debt_before": 15,
+    "debt_after": 3,
+    "sessions_processed": 4,
+    "bookmarks_processed": 0,
+    "session_ids": [
+      "e6aed1f7-e54e-4ec2-a12f-a4eaeb239f20",
+      "dca847b8-da9e-471c-aca1-20b926edb3a6",
+      "17c7ab93-6622-4164-97e1-a6e6331db6c0",
+      "b7b93244-f127-441c-8f4a-ba5f26f76020"
+    ]
+  },
+  {
     "date": "2026-03-02",
     "consolidated_at": "2026-03-02T13:40:32.690Z",
     "summary": "Consolidated 3 sessions: code-quality-hooks task completed (PostToolUse auto-format+tsc, PreCompact hook+compaction_log, rem-sleep Step 1c pattern extraction, data-driven HOOK_SPECS refactor). Code review fixes: execFileSync, resolveLocalBin, findProjectConfig merged walk-up, tsc --incremental. 451 tests, 450 passing. 4 changelog entries added. Soul updated to 7 hooks. Task marked completed.",

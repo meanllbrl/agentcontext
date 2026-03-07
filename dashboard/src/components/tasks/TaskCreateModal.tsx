@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCreateTask } from '../../hooks/useTasks';
+import { usePlanningVersions } from '../../hooks/useVersions';
 import { useI18n } from '../../context/I18nContext';
 import './TaskCreateModal.css';
 
@@ -10,11 +11,14 @@ interface TaskCreateModalProps {
 export function TaskCreateModal({ onClose }: TaskCreateModalProps) {
   const { t } = useI18n();
   const createTask = useCreateTask();
+  const { data: versions } = usePlanningVersions();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [urgency, setUrgency] = useState('medium');
   const [tagsInput, setTagsInput] = useState('');
   const [why, setWhy] = useState('');
+  const [version, setVersion] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +27,12 @@ export function TaskCreateModal({ onClose }: TaskCreateModalProps) {
     const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
 
     createTask.mutate(
-      { name: name.trim(), description, priority, tags, why: why.trim() || undefined },
+      {
+        name: name.trim(), description, priority, tags,
+        urgency: urgency !== 'medium' ? urgency : undefined,
+        why: why.trim() || undefined,
+        version: version || undefined,
+      },
       { onSuccess: () => onClose() },
     );
   };
@@ -64,6 +73,24 @@ export function TaskCreateModal({ onClose }: TaskCreateModalProps) {
               <option value="medium">{t('priority.medium')}</option>
               <option value="high">{t('priority.high')}</option>
               <option value="critical">{t('priority.critical')}</option>
+            </select>
+          </label>
+          <label className="field">
+            <span className="field-label">Urgency</span>
+            <select className="field-select" value={urgency} onChange={e => setUrgency(e.target.value)}>
+              <option value="low">{t('priority.low')}</option>
+              <option value="medium">{t('priority.medium')}</option>
+              <option value="high">{t('priority.high')}</option>
+              <option value="critical">{t('priority.critical')}</option>
+            </select>
+          </label>
+          <label className="field">
+            <span className="field-label">Version</span>
+            <select className="field-select" value={version} onChange={e => setVersion(e.target.value)}>
+              <option value="">No version</option>
+              {(versions ?? []).map(v => (
+                <option key={v.version} value={v.version}>{v.version}</option>
+              ))}
             </select>
           </label>
           <label className="field">

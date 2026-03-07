@@ -121,12 +121,15 @@ export async function handleReleasesCreate(
     return;
   }
 
+  const status = body.status === 'planning' ? 'planning' : 'released' as const;
+
   const release: ReleaseEntry = {
     id: generateId('rel'),
     version: version.trim(),
-    date: today(),
+    date: status === 'planning' ? '' : today(),
     summary: ((body.summary as string) ?? '').trim(),
     breaking: body.breaking === true,
+    status,
     features: Array.isArray(body.features) ? body.features : [],
     tasks: Array.isArray(body.tasks) ? body.tasks : [],
     changelog: Array.isArray(body.changelog) ? body.changelog : [],
@@ -148,4 +151,72 @@ export async function handleReleasesCreate(
   });
 
   sendJson(res, 201, { release });
+}
+
+/**
+ * PATCH /api/releases/:version - Update a release (status, summary, date)
+ */
+export async function handleReleasesUpdate(
+  req: IncomingMessage,
+  res: ServerResponse,
+  params: Record<string, string>,
+  contextRoot: string,
+): Promise<void> {
+  const body = await parseJsonBody(req);
+  if (!body) {
+    sendError(res, 400, 'invalid_body', 'Request body must be JSON.');
+    return;
+  }
+
+  const filePath = join(contextRoot, 'core', 'RELEASES.json');
+  if (!existsSync(filePath)) {
+    sendError(res, 404, 'not_found', `Release not found: ${params.version}`);
+    return;
+  }
+
+  const entries = readJsonArray<ReleaseEntry>(filePath);
+  // Backward compat
+  for (const entry of entries) {
+    if (!entry.status) entry.status = 'released';
+  }
+
+  const idx = entries.findIndex(r => r.version === params.version);
+  if (idx === -1) {
+    sendError(res, 404, 'not_found', `Release not found: ${params.version}`);
+    return;
+  }
+
+  const release = entries[idx];
+
+  if (body.status !== undefined) {
+    const s = body.status as string;
+    if (s !== 'planning' && s !== 'released') {
+      sendError(res, 400, 'invalid_status', 'Status must be "planning" or "released".');
+      return;
+    }
+    release.status = s;
+    if (s === 'released' && !release.date) {
+      release.date = today();
+    }
+  }
+
+  if (typeof body.summary === 'string') {
+    release.summary = (body.summary as string).trim();
+  }
+
+  if (typeof body.date === 'string') {
+    release.date = (body.date as string).trim();
+  }
+
+  const { writeJsonArray } = await import('../../lib/json-file.js');
+  writeJsonArray(filePath, entries);
+
+  recordDashboardChange(contextRoot, {
+    entity: 'core',
+    action: 'update',
+    target: `core/RELEASES.json#${release.version}`,
+    summary: `Updated release ${release.version}`,
+  });
+
+  sendJson(res, 200, { release });
 }

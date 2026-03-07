@@ -17,6 +17,7 @@ function makeBookmark(overrides: Partial<Bookmark> = {}): Bookmark {
     salience: 2,
     created_at: new Date().toISOString(),
     session_id: null,
+    task_slug: null,
     ...overrides,
   };
 }
@@ -80,6 +81,52 @@ describe('Bookmark operations via SleepState', () => {
 
     const reread = readSleepState(tmpDir);
     expect(reread.bookmarks[0].session_id).toBe('sess-123');
+  });
+
+  it('stores task_slug on bookmarks', () => {
+    const state = readSleepState(tmpDir);
+    state.bookmarks.unshift(makeBookmark({ message: 'Working on auth', task_slug: 'fix-auth-bug' }));
+    writeSleepState(tmpDir, state);
+
+    const reread = readSleepState(tmpDir);
+    expect(reread.bookmarks[0].task_slug).toBe('fix-auth-bug');
+  });
+
+  it('defaults task_slug to null', () => {
+    const state = readSleepState(tmpDir);
+    state.bookmarks.unshift(makeBookmark({ message: 'No task' }));
+    writeSleepState(tmpDir, state);
+
+    const reread = readSleepState(tmpDir);
+    expect(reread.bookmarks[0].task_slug).toBeNull();
+  });
+
+  it('reads old bookmarks without task_slug field', () => {
+    // Simulate old data format without task_slug
+    const sleepPath = join(tmpDir, 'state', '.sleep.json');
+    const oldData = {
+      debt: 0,
+      sessions: [],
+      bookmarks: [{
+        id: 'bm_old',
+        message: 'Old bookmark',
+        salience: 2,
+        created_at: '2026-01-01T00:00:00.000Z',
+        session_id: null,
+        // no task_slug field
+      }],
+      triggers: [],
+      knowledge_access: {},
+      dashboard_changes: [],
+      compaction_log: [],
+    };
+    writeFileSync(sleepPath, JSON.stringify(oldData));
+
+    const state = readSleepState(tmpDir);
+    expect(state.bookmarks).toHaveLength(1);
+    expect(state.bookmarks[0].message).toBe('Old bookmark');
+    // Old bookmarks without task_slug are valid (undefined, not null)
+    expect(state.bookmarks[0].task_slug).toBeUndefined();
   });
 
   it('epoch-based clearing removes pre-epoch bookmarks', () => {

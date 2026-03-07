@@ -178,20 +178,35 @@ These files vary across projects. Do not assume a fixed list. Always discover dy
 
 ---
 
-## Bookmarking (Awake Ripples)
+## Self-Reflection & Bookmarking
 
-During active work, bookmark important moments for consolidation. Bookmarks ensure critical decisions, user preferences, and architectural choices are tagged for the sleep agent to process first.
+Bookmarks are how you tag important moments for the sleep agent to process. They also link sessions to tasks. **You MUST actively self-reflect during work.**
 
 ```bash
-agentcontext bookmark add "<message>" -s <1|2|3>
+agentcontext bookmark add "<message>" -s <1|2|3> --task <task-slug>
 ```
 
-**When to auto-bookmark:**
+**Mandatory self-reflection checkpoints.** After each of these events, pause and ask yourself:
 
-| Salience | When | Example |
-|----------|------|---------|
-| ★ (1) | Notable decision, useful pattern | "Chose CSS modules over styled-components" |
-| ★★ (2) | Architectural decision, user preference, significant bug | "User requires all auth to have rate limiting" |
+| Event | Ask yourself | Action |
+|-------|-------------|--------|
+| User corrects you | "What did I just learn? Will this apply again?" | `bookmark add "..." -s 2 --task <slug>` |
+| You make an architectural decision | "What did I decide and why? Will future sessions need this?" | `bookmark add "..." -s 2 --task <slug>` |
+| You find a bug or unexpected behavior | "What was surprising? Could this recur?" | `bookmark add "..." -s 1 --task <slug>` |
+| You complete a significant implementation step | "What's done, what's the current state?" | `bookmark add "..." -s 1 --task <slug>` |
+| User expresses a preference | "Is this a one-time request or a lasting preference?" | `bookmark add "..." -s 2` |
+| You hit a dead end or change approach | "What failed and why?" | `bookmark add "..." -s 1 --task <slug>` |
+
+**Task tagging rule**: Every bookmark during active task work MUST include `--task <slug>`. This is how sessions get linked to tasks. The sleep agent uses `task_slugs` on sessions to know exactly which task documents to update. Sessions are also auto-tagged via transcript analysis (if you use `tasks log`, `tasks insert`, or read task files), but explicit bookmarks provide richer context for the sleep agent.
+
+**Minimum frequency**: At least one bookmark per task-modifying session. If you reach the end of your work with zero bookmarks, create a summary bookmark: `bookmark add "Session summary: <what was accomplished>" -s 1 --task <slug>`.
+
+**Salience levels:**
+
+| Level | When | Example |
+|-------|------|---------|
+| ★ (1) | Notable decision, progress checkpoint, useful pattern | "Chose CSS modules over styled-components" |
+| ★★ (2) | Architectural decision, user preference, significant bug, user correction | "User requires all auth to have rate limiting" |
 | ★★★ (3) | Critical constraint, breaking change, fundamental design choice | "Switched from REST to GraphQL for public API" |
 
 A ★★★ bookmark triggers a consolidation advisory in the next session, regardless of debt level. The sleep agent processes bookmarks FIRST, ordered by salience.
@@ -257,6 +272,24 @@ Sleep debt reminders are injected on every user message (via UserPromptSubmit ho
 **Epoch safety**: The rem-sleep agent calls `sleep start` before beginning work, which sets a timestamp epoch. `sleep done` only clears sessions/changes/bookmarks from before the epoch. Parallel sessions that finish during consolidation are preserved for the next cycle.
 
 For non-file-change work (architecture discussions, decisions): `agentcontext sleep add <score> "<reason>"`
+
+---
+
+## Versioning
+
+Versions and releases are unified in `RELEASES.json`. A "version" is a release entry with `status: planning`. When released, the status changes to `released` and the date is set.
+
+**Lifecycle**: `planning` -> `released`
+
+```bash
+# Create a planning version
+agentcontext core releases add --ver v0.2.0 --summary "Dashboard improvements" --status planning
+
+# Release a version (via dashboard or by updating RELEASES.json status to released)
+# The sleep agent checks if all tasks for a planning version are done and reports readiness.
+```
+
+Tasks can be assigned to a planning version via the `version` field. The dashboard's Version Manager shows planning vs released versions and provides a "Release" action.
 
 ---
 
@@ -334,7 +367,7 @@ All commands prefixed with `agentcontext`. For reading/searching, use native too
 |---------|-------------|
 | `init` | Initialize `_agent_context/` |
 | `core changelog add` | Add changelog entry (interactive) |
-| `core releases add [--ver v --summary s --yes]` | Create release with auto-discovered tasks/features/changelog |
+| `core releases add [--ver v --summary s --yes] [--status planning]` | Create release (default: released with auto-discovery; --status planning: empty planning version) |
 | `core releases list [-n count]` | List recent releases |
 | `core releases show <version>` | Show release details |
 | `features create <name>` | Create feature PRD |
@@ -348,7 +381,7 @@ All commands prefixed with `agentcontext`. For reading/searching, use native too
 | `tasks insert <name> <section> <content>` | Insert into task section |
 | `tasks complete <name>` | Complete task |
 | `tasks log <name> <content>` | Log task progress |
-| `bookmark add "<message>" [-s 1\|2\|3]` | Bookmark an important moment (default salience: 2) |
+| `bookmark add "<message>" [-s 1\|2\|3] [--task <slug>]` | Bookmark an important moment with optional task link |
 | `bookmark list` | Show current bookmarks |
 | `bookmark clear` | Remove all bookmarks |
 | `trigger add "<when>" "<remind>" [-m max_fires] [-s source]` | Create contextual trigger |

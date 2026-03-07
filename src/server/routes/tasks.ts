@@ -15,12 +15,14 @@ interface TaskData {
   name: string;
   description: string;
   priority: string;
+  urgency: string;
   status: string;
   created_at: string;
   updated_at: string;
   tags: string[];
   parent_task: string | null;
   related_feature: string | null;
+  version: string | null;
   why: string;
   user_stories: string;
   acceptance_criteria: string;
@@ -60,12 +62,14 @@ function readTask(filePath: string): TaskData {
     name: (data.name as string) ?? slug,
     description: (data.description as string) ?? '',
     priority: (data.priority as string) ?? 'medium',
+    urgency: (data.urgency as string) ?? 'medium',
     status,
     created_at: (data.created_at as string) ?? '',
     updated_at: (data.updated_at as string) ?? '',
     tags: Array.isArray(data.tags) ? data.tags as string[] : [],
     parent_task: (data.parent_task as string) ?? null,
     related_feature: (data.related_feature as string) ?? null,
+    version: (data.version as string) ?? null,
     why: readSectionSafe(filePath, 'Why'),
     user_stories: readSectionSafe(filePath, 'User Stories'),
     acceptance_criteria: readSectionSafe(filePath, 'Acceptance Criteria'),
@@ -125,12 +129,19 @@ export async function handleTasksCreate(
 
   const description = (body.description as string) ?? '';
   const priority = (body.priority as string) ?? 'medium';
+  const urgency = (body.urgency as string) ?? 'medium';
   const tags = Array.isArray(body.tags) ? body.tags as string[] : [];
   const why = (body.why as string) ?? '';
+  const version = (body.version as string) ?? null;
 
   const validPriorities = ['critical', 'high', 'medium', 'low'];
   if (!validPriorities.includes(priority)) {
     sendError(res, 400, 'invalid_priority', `Priority must be one of: ${validPriorities.join(', ')}`);
+    return;
+  }
+
+  if (!validPriorities.includes(urgency)) {
+    sendError(res, 400, 'invalid_urgency', `Urgency must be one of: ${validPriorities.join(', ')}`);
     return;
   }
 
@@ -145,17 +156,20 @@ export async function handleTasksCreate(
 
   const dateStr = today();
   const tagsYaml = tags.length > 0 ? `[${tags.map(t => `"${t}"`).join(', ')}]` : '[]';
+  const versionYaml = version ? `"${version}"` : 'null';
   const content = `---
 id: "${generateId('task')}"
 name: "${name.trim()}"
 description: "${description}"
 priority: "${priority}"
+urgency: "${urgency}"
 status: "todo"
 created_at: "${dateStr}"
 updated_at: "${dateStr}"
 tags: ${tagsYaml}
 parent_task: null
 related_feature: null
+version: ${versionYaml}
 ---
 
 ## Why
@@ -251,7 +265,7 @@ export async function handleTasksUpdate(
   const updates: Record<string, unknown> = {};
   const fieldChanges: FieldChange[] = [];
 
-  const allowedFields = ['status', 'priority', 'description', 'tags', 'name', 'related_feature'];
+  const allowedFields = ['status', 'priority', 'urgency', 'description', 'tags', 'name', 'related_feature', 'version'];
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       const oldVal = (oldData[field] ?? null) as FieldChange['from'];
@@ -283,6 +297,15 @@ export async function handleTasksUpdate(
     const validPriorities = ['critical', 'high', 'medium', 'low'];
     if (!validPriorities.includes(updates.priority as string)) {
       sendError(res, 400, 'invalid_priority', `Priority must be one of: ${validPriorities.join(', ')}`);
+      return;
+    }
+  }
+
+  // Validate urgency
+  if (updates.urgency) {
+    const validUrgencies = ['critical', 'high', 'medium', 'low'];
+    if (!validUrgencies.includes(updates.urgency as string)) {
+      sendError(res, 400, 'invalid_urgency', `Urgency must be one of: ${validUrgencies.join(', ')}`);
       return;
     }
   }

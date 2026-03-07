@@ -7,12 +7,14 @@ export interface Task {
   name: string;
   description: string;
   priority: 'critical' | 'high' | 'medium' | 'low';
+  urgency: 'critical' | 'high' | 'medium' | 'low';
   status: 'todo' | 'in_progress' | 'completed';
   created_at: string;
   updated_at: string;
   tags: string[];
   parent_task: string | null;
   related_feature: string | null;
+  version: string | null;
   why: string;
   user_stories: string;
   acceptance_criteria: string;
@@ -36,13 +38,15 @@ interface CreateTaskInput {
   name: string;
   description: string;
   priority: string;
+  urgency?: string;
   tags?: string[];
   why?: string;
+  version?: string;
 }
 
 interface UpdateTaskInput {
   slug: string;
-  updates: Partial<Pick<Task, 'status' | 'priority' | 'description' | 'tags' | 'name' | 'related_feature'>>;
+  updates: Partial<Pick<Task, 'status' | 'priority' | 'urgency' | 'description' | 'tags' | 'name' | 'related_feature' | 'version'>>;
 }
 
 interface InsertTaskSectionInput {

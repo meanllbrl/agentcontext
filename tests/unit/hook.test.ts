@@ -200,6 +200,76 @@ describe('analyzeTranscript', () => {
     expect(result.changeCount).toBe(0);
     expect(result.toolCount).toBe(5);
   });
+
+  // ─── Task slug extraction ───────────────────────────────────────────────────
+
+  it('extracts task slugs from agentcontext tasks log commands', () => {
+    const f = join(tmpDir, 'tasks.jsonl');
+    const content = [
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks log fix-auth-bug \\"Implemented token refresh\\""}}]}}',
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks insert my-task notes \\"some note\\""}}]}}',
+    ].join('\n');
+    writeFileSync(f, content);
+    const result = analyzeTranscript(f);
+    expect(result.taskSlugs).toContain('fix-auth-bug');
+    expect(result.taskSlugs).toContain('my-task');
+  });
+
+  it('extracts task slugs from _agent_context/state/*.md file paths', () => {
+    const f = join(tmpDir, 'reads.jsonl');
+    const content = '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"/home/user/project/_agent_context/state/web-dashboard.md"}}]}}';
+    writeFileSync(f, content);
+    const result = analyzeTranscript(f);
+    expect(result.taskSlugs).toContain('web-dashboard');
+  });
+
+  it('deduplicates task slugs from multiple sources', () => {
+    const f = join(tmpDir, 'dupes.jsonl');
+    const content = [
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"_agent_context/state/my-task.md"}}]}}',
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks log my-task \\"did stuff\\""}}]}}',
+    ].join('\n');
+    writeFileSync(f, content);
+    const result = analyzeTranscript(f);
+    expect(result.taskSlugs).toEqual(['my-task']);
+  });
+
+  it('returns empty taskSlugs when no task references found', () => {
+    const f = join(tmpDir, 'no-tasks.jsonl');
+    writeFileSync(f, toolUseLine('Write'));
+    const result = analyzeTranscript(f);
+    expect(result.taskSlugs).toEqual([]);
+  });
+
+  it('extracts from agentcontext tasks complete and create commands', () => {
+    const f = join(tmpDir, 'complete.jsonl');
+    const content = [
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks complete fix-bug \\"All done\\""}}]}}',
+      '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"agentcontext tasks create new-feature --status todo"}}]}}',
+    ].join('\n');
+    writeFileSync(f, content);
+    const result = analyzeTranscript(f);
+    expect(result.taskSlugs).toContain('fix-bug');
+    expect(result.taskSlugs).toContain('new-feature');
+  });
+
+  it('does not extract task slugs from prose text about commands', () => {
+    const f = join(tmpDir, 'prose.jsonl');
+    // Agent text mentioning commands in prose (not in tool input)
+    const content = JSON.stringify({
+      type: 'assistant',
+      message: {
+        content: [{
+          type: 'text',
+          text: 'You can use agentcontext tasks log my-task to record progress. ' +
+            'Also agentcontext tasks complete and create are useful commands.',
+        }],
+      },
+    });
+    writeFileSync(f, content);
+    const result = analyzeTranscript(f);
+    expect(result.taskSlugs).toEqual([]);
+  });
 });
 
 // ─── isJsTsFile ──────────────────────────────────────────────────────────────

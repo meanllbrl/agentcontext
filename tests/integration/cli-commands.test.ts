@@ -255,6 +255,38 @@ parent_task: null
     });
   });
 
+  describe('bookmark', () => {
+    beforeEach(() => {
+      run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);
+    });
+
+    it('creates a bookmark with --task flag', () => {
+      const output = run('bookmark add "Auth refactored" --task fix-auth -s 2', tmpDir);
+      expect(output).toContain('Bookmarked');
+
+      const sleepPath = join(tmpDir, '_agent_context', 'state', '.sleep.json');
+      const state = JSON.parse(readFileSync(sleepPath, 'utf-8'));
+      expect(state.bookmarks).toHaveLength(1);
+      expect(state.bookmarks[0].task_slug).toBe('fix-auth');
+      expect(state.bookmarks[0].message).toBe('Auth refactored');
+    });
+
+    it('creates a bookmark without --task (null task_slug)', () => {
+      run('bookmark add "General note" -s 1', tmpDir);
+
+      const sleepPath = join(tmpDir, '_agent_context', 'state', '.sleep.json');
+      const state = JSON.parse(readFileSync(sleepPath, 'utf-8'));
+      expect(state.bookmarks[0].task_slug).toBeNull();
+    });
+
+    it('shows task association in bookmark list', () => {
+      run('bookmark add "Working on auth" --task fix-auth -s 2', tmpDir);
+      const output = run('bookmark list', tmpDir);
+      expect(output).toContain('Working on auth');
+      expect(output).toContain('fix-auth');
+    });
+  });
+
   describe('knowledge', () => {
     beforeEach(() => {
       run('init --yes --name "Test" --description "d" --stack "Node" --priority "p"', tmpDir);

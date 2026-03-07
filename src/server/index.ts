@@ -11,7 +11,7 @@ import { handleSleepGet, handleSleepUpdate } from './routes/sleep.js';
 import { handleCoreList, handleCoreGet, handleCoreUpdate } from './routes/core.js';
 import { handleKnowledgeList, handleKnowledgeGet, handleKnowledgeUpdate } from './routes/knowledge.js';
 import { handleFeaturesList, handleFeaturesGet } from './routes/features.js';
-import { handleChangelogGet, handleReleasesGet, handleUnreleasedGet, handleReleaseGet, handleReleasesCreate } from './routes/changelog.js';
+import { handleChangelogGet, handleReleasesGet, handleUnreleasedGet, handleReleaseGet, handleReleasesCreate, handleReleasesUpdate } from './routes/changelog.js';
 
 export interface ServerOptions {
   port: number;
@@ -57,6 +57,7 @@ function buildRouter(): Router {
   router.get('/api/releases/unreleased', handleUnreleasedGet);
   router.get('/api/releases/:version', handleReleaseGet);
   router.post('/api/releases', handleReleasesCreate);
+  router.patch('/api/releases/:version', handleReleasesUpdate);
 
   return router;
 }

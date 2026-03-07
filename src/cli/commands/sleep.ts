@@ -294,6 +294,7 @@ export function registerSleepCommand(program: Command): void {
         change_count: null,
         tool_count: null,
         score,
+        task_slugs: [],
       });
       state.debt += score;
 

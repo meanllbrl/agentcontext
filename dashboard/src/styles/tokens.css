@@ -72,6 +72,18 @@
   --color-priority-medium: hsl(0 0% 50%);
   --color-priority-low: hsl(0 0% 70%);
 
+  /* ─── Urgency Colors ─── */
+  --color-urgency-critical: hsl(0 84% 60%);
+  --color-urgency-high: hsl(38 92% 50%);
+  --color-urgency-medium: hsl(0 0% 50%);
+  --color-urgency-low: hsl(0 0% 70%);
+
+  /* ─── Eisenhower Quadrant Colors ─── */
+  --color-quadrant-do: hsl(0 84% 60%);
+  --color-quadrant-schedule: hsl(220 90% 56%);
+  --color-quadrant-delegate: hsl(38 92% 50%);
+  --color-quadrant-eliminate: hsl(0 0% 50%);
+
   /* ─── Status Colors ─── */
   --color-status-todo: hsl(38 80% 50%);
   --color-status-in-progress: hsl(220 90% 56%);

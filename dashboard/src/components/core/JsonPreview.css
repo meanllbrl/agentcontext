@@ -1,0 +1,393 @@
+/* ─── Container ─── */
+.json-preview {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.json-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+/* ─── Header / Stats ─── */
+.json-preview-header {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.json-preview-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.json-preview-total {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-right: var(--space-2);
+}
+
+.json-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.json-stat-chip:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.json-stat-chip--active {
+  background: var(--gradient-brand-subtle);
+  border-color: var(--color-brand-vivid);
+  color: var(--color-text);
+}
+
+/* ─── Type Badges ─── */
+.json-type-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+  background: hsl(0 0% 50% / 0.1);
+  color: var(--color-text-secondary);
+}
+
+.type--feat {
+  background: hsl(142 71% 40% / 0.12);
+  color: hsl(142 71% 40%);
+}
+
+.type--fix {
+  background: hsl(25 85% 55% / 0.12);
+  color: hsl(25 85% 55%);
+}
+
+.type--refactor {
+  background: hsl(220 90% 56% / 0.12);
+  color: hsl(220 90% 56%);
+}
+
+.type--chore {
+  background: hsl(0 0% 55% / 0.12);
+  color: var(--color-text-tertiary);
+}
+
+.type--docs {
+  background: hsl(262 60% 55% / 0.12);
+  color: hsl(262 60% 55%);
+}
+
+.type--test {
+  background: hsl(190 80% 42% / 0.12);
+  color: hsl(190 80% 42%);
+}
+
+.type--perf {
+  background: hsl(38 80% 50% / 0.12);
+  color: hsl(38 80% 50%);
+}
+
+.json-breaking-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: hsl(0 72% 50% / 0.15);
+  color: hsl(0 72% 50%);
+  flex-shrink: 0;
+}
+
+/* ─── Timeline (Changelog) ─── */
+.json-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.json-date-group {
+  position: relative;
+}
+
+.json-date-marker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.json-date-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-brand-vivid);
+  flex-shrink: 0;
+}
+
+.json-date-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.json-date-count {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-tertiary);
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+}
+
+.json-date-entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-left: 3px;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-border);
+}
+
+/* ─── Entry Card ─── */
+.json-entry {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.json-entry:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.json-entry--expanded {
+  background: var(--color-bg-secondary);
+}
+
+.json-entry-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 2px;
+}
+
+.json-entry-scope {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.json-entry-desc {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+}
+
+.json-entry-desc--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Releases ─── */
+.json-releases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.json-release {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: box-shadow var(--transition-fast);
+}
+
+.json-release:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.json-release-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--gradient-brand-subtle);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.json-release-header:hover {
+  filter: brightness(0.97);
+}
+
+.json-release-version {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.json-release-date {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+}
+
+.json-release-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-left: auto;
+}
+
+.json-release-chevron {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  transition: transform 0.15s ease;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.json-release-chevron--open {
+  transform: rotate(90deg);
+}
+
+/* ─── Release Body ─── */
+.json-release-body {
+  padding: var(--space-4);
+}
+
+.json-release-summary {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+}
+
+.json-release-section {
+  margin-bottom: var(--space-4);
+}
+
+.json-release-section:last-child {
+  margin-bottom: 0;
+}
+
+.json-release-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.json-release-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.json-id-chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+}
+
+.json-id-chip--feature {
+  background: hsl(278 72% 38% / 0.1);
+  color: var(--color-brand-mid);
+}
+
+.json-id-chip--task {
+  background: hsl(220 90% 56% / 0.1);
+  color: hsl(220 90% 56%);
+}
+
+/* ─── Release Changelog ─── */
+.json-release-changelog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.json-release-cl-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  transition: background var(--transition-fast);
+}
+
+.json-release-cl-entry:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.json-release-cl-scope {
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  font-size: 10px;
+  padding-top: 1px;
+}
+
+.json-release-cl-desc {
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ─── Generic Fallback ─── */
+.json-generic-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.json-generic-item {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}

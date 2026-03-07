@@ -163,7 +163,8 @@ export function generateSnapshot(): string {
     parts.push('## Bookmarks\n');
     const salienceLabels: Record<number, string> = { 1: '*', 2: '**', 3: '***' };
     for (const b of sorted) {
-      parts.push(`- ${salienceLabels[b.salience] || '*'} ${b.message}`);
+      const taskRef = b.task_slug ? ` (task: ${b.task_slug})` : '';
+      parts.push(`- ${salienceLabels[b.salience] || '*'} ${b.message}${taskRef}`);
     }
     parts.push('');
   }
@@ -242,7 +243,8 @@ export function generateSnapshot(): string {
         const changePart = s.change_count !== null ? `${s.change_count} changes` : '';
         const toolPart = s.tool_count != null ? `${s.tool_count} tools` : '';
         const metricsStr = [changePart, toolPart].filter(Boolean).join(', ');
-        parts.push(`  - ${s.stopped_at ?? 'active'} ${scoreStr}${metricsStr ? ` ${metricsStr}` : ''}`);
+        const taskStr = s.task_slugs?.length ? ` [tasks: ${s.task_slugs.join(', ')}]` : '';
+        parts.push(`  - ${s.stopped_at ?? 'active'} ${scoreStr}${metricsStr ? ` ${metricsStr}` : ''}${taskStr}`);
         if (s.last_assistant_message) {
           const preview = s.last_assistant_message.length > 200
             ? s.last_assistant_message.slice(0, 200) + '...'
@@ -286,25 +288,41 @@ export function generateSnapshot(): string {
     }
   }
 
-  // 7.5. Latest Release
+  // 7.5. Releases (planning + latest released)
   const releasesPath = join(root, 'core', 'RELEASES.json');
   if (existsSync(releasesPath)) {
     try {
       const releases = readJsonArray<Record<string, unknown>>(releasesPath);
       if (releases.length > 0) {
-        const latest = releases[0];
-        const ver = String(latest.version ?? '');
-        const relDate = String(latest.date ?? '');
-        const sum = String(latest.summary ?? '');
-        const taskCount = Array.isArray(latest.tasks) ? latest.tasks.length : 0;
-        const featCount = Array.isArray(latest.features) ? latest.features.length : 0;
-        const brk = latest.breaking ? ' (BREAKING)' : '';
-        parts.push('## Latest Release\n');
-        parts.push(`- ${ver} (${relDate})${brk}: ${sum}`);
-        if (taskCount > 0 || featCount > 0) {
-          parts.push(`  Includes: ${taskCount} task(s), ${featCount} feature(s)`);
+        const planning = releases.filter(r => r.status === 'planning');
+        const released = releases.filter(r => r.status !== 'planning');
+
+        if (planning.length > 0) {
+          parts.push('## Upcoming Versions\n');
+          for (const p of planning) {
+            const ver = String(p.version ?? '');
+            const sum = String(p.summary ?? '');
+            const taskCount = Array.isArray(p.tasks) ? p.tasks.length : 0;
+            parts.push(`- ${ver}: ${sum}${taskCount > 0 ? ` (${taskCount} task(s))` : ''}`);
+          }
+          parts.push('');
         }
-        parts.push('');
+
+        if (released.length > 0) {
+          const latest = released[0];
+          const ver = String(latest.version ?? '');
+          const relDate = String(latest.date ?? '');
+          const sum = String(latest.summary ?? '');
+          const taskCount = Array.isArray(latest.tasks) ? latest.tasks.length : 0;
+          const featCount = Array.isArray(latest.features) ? latest.features.length : 0;
+          const brk = latest.breaking ? ' (BREAKING)' : '';
+          parts.push('## Latest Release\n');
+          parts.push(`- ${ver} (${relDate})${brk}: ${sum}`);
+          if (taskCount > 0 || featCount > 0) {
+            parts.push(`  Includes: ${taskCount} task(s), ${featCount} feature(s)`);
+          }
+          parts.push('');
+        }
       }
     } catch {
       // skip if malformed
@@ -594,7 +612,7 @@ export function generateSubagentBriefing(): string {
   const coreDir = join(root, 'core');
   if (existsSync(coreDir)) {
     const allCoreFiles = fg.sync(['[0-9]*'], { cwd: coreDir, absolute: true });
-    allCoreFiles.sort((a, b) => basename(a).localeCompare(basename(b)));
+    allCoreFiles.sort((a, b) => basename(a).localeCompare(basename(b), undefined, { numeric: true }));
 
     if (allCoreFiles.length > 0) {
       parts.push('## Core Files\n');

@@ -75,11 +75,13 @@ export function registerCoreCommand(program: Command): void {
     .description('Create a release with auto-discovered tasks, features, and changelog entries')
     .option('-V, --ver <version>', 'Version string (e.g., 1.2.0)')
     .option('-s, --summary <summary>', 'Release summary')
+    .option('--status <status>', 'Release status: planning or released (default: released)')
     .option('-y, --yes', 'Skip interactive selection, include all discovered items')
     .action(async (opts) => {
       const root = ensureContextRoot();
       const releasesPath = join(root, 'core', 'RELEASES.json');
       const auto = !!opts.yes;
+      const releaseStatus = opts.status === 'planning' ? 'planning' : 'released' as const;
 
       // 1. Version
       const version = opts.ver ?? (auto ? '' : await input({ message: 'Version (e.g., 1.2.0):' }));
@@ -97,6 +99,24 @@ export function registerCoreCommand(program: Command): void {
 
       // 2. Summary
       const summary = opts.summary ?? (auto ? '' : await input({ message: 'Summary:' }));
+
+      // For planning releases, skip auto-discovery
+      if (releaseStatus === 'planning') {
+        const releaseEntry: ReleaseEntry = {
+          id: generateId('rel'),
+          version: version.trim(),
+          date: '',
+          summary: summary.trim(),
+          breaking: false,
+          status: 'planning',
+          features: [],
+          tasks: [],
+          changelog: [],
+        };
+        insertToJsonArray(releasesPath, releaseEntry);
+        success(`Planning version ${version.trim()} created.`);
+        return;
+      }
 
       // 3. Breaking?
       const breaking = auto
@@ -171,6 +191,7 @@ export function registerCoreCommand(program: Command): void {
         date: today(),
         summary: summary.trim(),
         breaking,
+        status: 'released',
         features: selectedFeatureIds,
         tasks: selectedTaskIds,
         changelog: selectedChangelog.map(c => c.entry),

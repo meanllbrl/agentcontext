@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useI18n } from '../context/I18nContext';
+import { MarkdownPreview } from '../components/core/MarkdownPreview';
 import './FeaturesPage.css';
 
 interface Feature {
@@ -23,6 +24,7 @@ interface FeatureDetail extends Feature {
 export function FeaturesPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
+  const [viewTab, setViewTab] = useState<'file' | 'preview'>('preview');
 
   const { data: featuresData, isLoading, isError, error } = useQuery({
     queryKey: ['features'],
@@ -52,7 +54,7 @@ export function FeaturesPage() {
             <button
               key={feature.slug}
               className={`feature-card ${selected === feature.slug ? 'feature-card--active' : ''} animate-stagger animate-stagger-${Math.min(index + 1, 8)}`}
-              onClick={() => setSelected(feature.slug)}
+              onClick={() => { setSelected(feature.slug); setViewTab('preview'); }}
             >
               <div className="feature-card-header">
                 <span className="feature-card-name">{feature.slug}</span>
@@ -72,8 +74,27 @@ export function FeaturesPage() {
         <div className="features-detail">
           {!selected && <div className="core-empty">Select a feature to view.</div>}
           {selected && featureDetail && (
-            <div className="feature-viewer">
-              <h2 className="core-viewer-title">{featureDetail.slug}</h2>
+            <div className="core-viewer">
+              <div className="core-viewer-header">
+                <h2 className="core-viewer-title">{featureDetail.slug}</h2>
+                <div className="core-viewer-actions">
+                  <div className="core-tabs">
+                    <button
+                      className={`core-tab ${viewTab === 'file' ? 'core-tab--active' : ''}`}
+                      onClick={() => setViewTab('file')}
+                    >
+                      File
+                    </button>
+                    <button
+                      className={`core-tab ${viewTab === 'preview' ? 'core-tab--active' : ''}`}
+                      onClick={() => setViewTab('preview')}
+                    >
+                      Preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="feature-meta">
                 <span>Status: {featureDetail.status}</span>
                 <span>Created: {featureDetail.created}</span>
@@ -84,14 +105,21 @@ export function FeaturesPage() {
                   Related tasks: {featureDetail.related_tasks.join(', ')}
                 </div>
               )}
-              {featureDetail.sections.map(section => (
-                <div key={section} className="feature-section">
-                  <h3 className="feature-section-title">{section}</h3>
-                  <pre className="feature-section-content">
-                    {featureDetail.sectionContents[section] || '(empty)'}
-                  </pre>
+
+              {viewTab === 'preview' && featureDetail.content ? (
+                <MarkdownPreview content={featureDetail.content} />
+              ) : (
+                <div className="feature-viewer">
+                  {featureDetail.sections.map(section => (
+                    <div key={section} className="feature-section">
+                      <h3 className="feature-section-title">{section}</h3>
+                      <pre className="feature-section-content">
+                        {featureDetail.sectionContents[section] || '(empty)'}
+                      </pre>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

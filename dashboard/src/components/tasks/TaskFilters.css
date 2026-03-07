@@ -350,6 +350,45 @@
   opacity: 0.9;
 }
 
+/* ─── View Toggle ─── */
+.filter-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.filter-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: none;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filter-view-btn:not(:last-child) {
+  border-right: 1px solid var(--color-border);
+}
+
+.filter-view-btn:hover {
+  color: var(--color-text);
+  background: var(--color-bg-secondary);
+}
+
+.filter-view-btn--active {
+  color: var(--color-brand-vivid);
+  background: hsl(287 100% 33% / 0.08);
+}
+
+.filter-view-btn--active:hover {
+  background: hsl(287 100% 33% / 0.12);
+}
+
 /* ─── Create Button ─── */
 .filter-create-btn {
   display: inline-flex;

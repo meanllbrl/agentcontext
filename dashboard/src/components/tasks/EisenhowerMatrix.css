@@ -1,0 +1,119 @@
+.eisenhower {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-2);
+  overflow: auto;
+}
+
+.eisenhower-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--space-3);
+  flex: 1;
+  min-height: 400px;
+}
+
+.eisenhower-quadrant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+  overflow-y: auto;
+}
+
+.eisenhower-quadrant--do {
+  border-top: 3px solid var(--color-quadrant-do);
+}
+
+.eisenhower-quadrant--schedule {
+  border-top: 3px solid var(--color-quadrant-schedule);
+}
+
+.eisenhower-quadrant--delegate {
+  border-top: 3px solid var(--color-quadrant-delegate);
+}
+
+.eisenhower-quadrant--eliminate {
+  border-top: 3px solid var(--color-quadrant-eliminate);
+}
+
+.eisenhower-quadrant-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.eisenhower-quadrant-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.eisenhower-quadrant-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.eisenhower-quadrant-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-tertiary);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  min-width: 20px;
+  text-align: center;
+}
+
+.eisenhower-quadrant-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.eisenhower-quadrant-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+/* Axis labels */
+.eisenhower-y-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.eisenhower-x-label {
+  display: flex;
+  justify-content: space-around;
+  padding: var(--space-1) 0 0;
+}
+
+.eisenhower-axis-hi,
+.eisenhower-axis-lo {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+.eisenhower-y-label {
+  display: none;
+}

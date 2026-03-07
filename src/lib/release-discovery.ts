@@ -18,6 +18,7 @@ export interface ReleaseEntry {
   date: string;
   summary: string;
   breaking: boolean;
+  status: 'planning' | 'released';
   features: string[];
   tasks: string[];
   changelog: ChangelogEntry[];
@@ -49,7 +50,12 @@ export function getExistingReleases(root: string): ReleaseEntry[] {
   const releasesPath = join(root, 'core', 'RELEASES.json');
   if (!existsSync(releasesPath)) return [];
   try {
-    return readJsonArray<ReleaseEntry>(releasesPath);
+    const entries = readJsonArray<ReleaseEntry>(releasesPath);
+    // Backward compat: entries without status default to 'released'
+    for (const entry of entries) {
+      if (!entry.status) entry.status = 'released';
+    }
+    return entries;
   } catch {
     return [];
   }
