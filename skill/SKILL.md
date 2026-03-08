@@ -217,10 +217,10 @@ After reading a knowledge file, record the access: `agentcontext knowledge touch
 
 ## Sub-Agents
 
-**Explorer** (`agentcontext-explore`) -- context-aware codebase exploration:
+**Explorer** (`agentcontext-explore`) -- context-accelerated codebase exploration:
 > Use this for ALL exploration tasks. The default Explore agent is automatically blocked via PreToolUse hook.
 
-Checks `_agent_context/` files first (data structures, tech stack, features, knowledge). Returns immediately if context answers the query. Falls back to full codebase search only when context is insufficient. Same tools and speed as the default Explorer, but context-aware.
+Uses the SubagentStart briefing (pre-loaded project knowledge) to narrow searches, not to add extra reads. Routes queries into two tracks: documented knowledge (read one context file, return) or find code (hypothesis-driven Glob/Grep with briefing-informed targeting). Budget-capped per thoroughness level. Parallel tool calls by default.
 
 **Initializer** (`agentcontext-initializer`) -- dispatch when the project has no `_agent_context/`:
 > "This project needs an _agent_context/ directory. Scan the codebase and set it up."
@@ -232,7 +232,7 @@ Scans the codebase, asks the user questions, populates core files with real cont
 
 Consolidates, calls `agentcontext sleep done` to reset debt automatically.
 
-**Context Propagation**: All sub-agents receive a lightweight context briefing via the SubagentStart hook (project summary, features index, knowledge index, active tasks). The `agentcontext-explore` agent has context-first behavior built into its system prompt (highest priority), so it always checks context before searching.
+**Context Propagation**: All sub-agents receive a lightweight context briefing via the SubagentStart hook (project summary, features index, knowledge index, active tasks). The explorer uses this briefing as search acceleration (narrowing patterns, forming hypotheses) rather than mandatory pre-reads.
 
 **When delegating to Plan agents, include relevant `_agent_context/` file paths in the prompt.** Match the user's request keywords against feature names/tags from the auto-loaded snapshot:
 - User asks about "onboarding" -> feature `project-initialization` has tag `onboarding` -> include "Read `_agent_context/core/features/project-initialization.md` first" in the prompt
