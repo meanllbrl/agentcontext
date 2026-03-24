@@ -715,13 +715,15 @@ parent_task: null
       expect(existsSync(join(tmpDir, '.claude', 'agents', 'reviewer.md'))).toBe(true);
     });
 
-    it('installs brand-voice pack with agents and references', () => {
+    it('installs brand-voice pack with discover-brand agent', () => {
       const output = run('install-skill --packs brand-voice', tmpDir);
       expect(output).toContain('brand-voice');
       expect(existsSync(join(tmpDir, '.claude', 'skills', 'brand-voice', 'SKILL.md'))).toBe(true);
       expect(existsSync(join(tmpDir, '.claude', 'skills', 'brand-voice', 'discover-brand.md'))).toBe(true);
       expect(existsSync(join(tmpDir, '.claude', 'agents', 'discover-brand.md'))).toBe(true);
-      expect(existsSync(join(tmpDir, '.claude', 'agents', 'quality-assurance.md'))).toBe(true);
+      // Generic agents removed — only discover-brand is a real sub-agent
+      expect(existsSync(join(tmpDir, '.claude', 'agents', 'quality-assurance.md'))).toBe(false);
+      expect(existsSync(join(tmpDir, '.claude', 'agents', 'document-analysis.md'))).toBe(false);
     });
 
     it('installs multiple packs at once', () => {

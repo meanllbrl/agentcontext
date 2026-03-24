@@ -1,5 +1,5 @@
 ---
-description: "Load when writing emails, proposals, presentations, LinkedIn posts, sales content, pitch decks, Slack messages, or any brand-aligned content. Also triggers on 'brand voice', 'on-brand', 'enforce voice', 'write in our voice', 'make this sound like us', 'rewrite in our tone', 'discover brand materials', 'generate brand guidelines', 'brand content audit', 'style guide', 'find brand docs'. Sub-skills: discover-brand (search platforms for brand materials), guideline-generation (create structured guidelines from sources). Agents: discover-brand, document-analysis, conversation-analysis, content-generation, quality-assurance."
+description: "Load when writing emails, proposals, presentations, LinkedIn posts, sales content, pitch decks, Slack messages, or any brand-aligned content. Also triggers on 'brand voice', 'on-brand', 'enforce voice', 'write in our voice', 'make this sound like us', 'rewrite in our tone', 'discover brand materials', 'generate brand guidelines', 'brand content audit', 'style guide', 'find brand docs'. Sub-skills: discover-brand (search platforms for brand materials), guideline-generation (create structured guidelines from sources). Agent: discover-brand (autonomous platform search)."
 alwaysApply: false
 ruleType: "Brand Voice System"
 version: "1.0"
@@ -12,17 +12,11 @@ version: "1.0"
 | Search connected platforms for brand materials, run a brand content audit | `discover-brand.md` |
 | Generate, create, or synthesize brand voice guidelines from documents or transcripts | `guideline-generation.md` |
 
-## Agents (Delegate Heavy Work)
-
-These agents are installed separately via `dreamcontext install-skill --agents`. Launch them via the Agent tool.
+## Agent
 
 | When you need to... | Agent name |
 |---------------------|------------|
 | Autonomously search enterprise platforms for brand materials | `discover-brand` |
-| Parse and analyze brand documents to extract voice attributes | `document-analysis` |
-| Analyze sales call transcripts for voice patterns | `conversation-analysis` |
-| Generate long-form or batch brand-aligned content | `content-generation` |
-| Validate content or guidelines against brand standards | `quality-assurance` |
 
 ---
 

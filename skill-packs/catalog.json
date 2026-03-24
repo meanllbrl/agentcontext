@@ -107,7 +107,7 @@
           "description": "Generate brand voice guidelines from documents, transcripts, discovery reports, or direct input. Saves as core file."
         }
       ],
-      "relatedAgents": ["discover-brand", "document-analysis", "conversation-analysis", "content-generation", "quality-assurance"],
+      "relatedAgents": ["discover-brand"],
       "crossPackDeps": []
     }
   ],
@@ -136,38 +136,6 @@
       "description": "Autonomous 4-phase brand material search across enterprise MCP platforms",
       "tags": ["brand", "discovery", "mcp"],
       "model": "sonnet"
-    },
-    {
-      "name": "document-analysis",
-      "file": "agents/document-analysis.md",
-      "pack": "brand-voice",
-      "description": "Parse brand documents to extract voice attributes, messaging, terminology",
-      "tags": ["brand", "documents", "analysis"],
-      "model": "sonnet"
-    },
-    {
-      "name": "conversation-analysis",
-      "file": "agents/conversation-analysis.md",
-      "pack": "brand-voice",
-      "description": "Analyze sales call transcripts for voice patterns and messaging effectiveness",
-      "tags": ["brand", "transcripts", "analysis"],
-      "model": "sonnet"
-    },
-    {
-      "name": "content-generation",
-      "file": "agents/content-generation.md",
-      "pack": "brand-voice",
-      "description": "Generate long-form or batch brand-aligned content with validation",
-      "tags": ["brand", "content", "generation"],
-      "model": "sonnet"
-    },
-    {
-      "name": "quality-assurance",
-      "file": "agents/quality-assurance.md",
-      "pack": "brand-voice",
-      "description": "Validate content and guidelines against brand standards",
-      "tags": ["brand", "validation", "quality"],
-      "model": "haiku"
     }
   ]
 }
