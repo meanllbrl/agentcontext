@@ -1,6 +1,19 @@
 [
   {
     "date": "2026-03-24",
+    "consolidated_at": "2026-03-24T13:10:18.017Z",
+    "summary": "Consolidated 2 sessions: (1) optional-skill-packs Phase 2 CLI -- install-skill --packs/--skill/--list, interactive checkbox, cross-pack deps, agent install, 490 tests; (2) hook cleanup -- removed 7 duplicate agentcontext hooks. Task/feature PRD updated (Phase 2 criteria checked). 2 changelog entries added. 3 technical decisions added to memory. Soul current priority updated.",
+    "debt_before": 4,
+    "debt_after": 0,
+    "sessions_processed": 2,
+    "bookmarks_processed": 0,
+    "session_ids": [
+      "3939ed44-3222-4315-88e2-78f20d36d95f",
+      "6a6cf8ee-cbed-45b9-987d-4b430e643c40"
+    ]
+  },
+  {
+    "date": "2026-03-24",
     "consolidated_at": "2026-03-24T12:17:49.431Z",
     "summary": "Consolidated 2 sessions: (1) optional-skill-packs Phase 1+Level2 -- 42 files, 5 packs, 6 agents, catalog.json, build pipeline; (2) full rebrand agentcontext->dreamcontext (package, binary, GitHub, _dream_context/, agent files). 2 changelog entries added. Feature PRD created: optional-skill-packs. Task logged. 4 skill-packs technical decisions added to memory. Stale operational note removed from memory.",
     "debt_before": 8,

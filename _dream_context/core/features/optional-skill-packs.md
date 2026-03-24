@@ -15,8 +15,8 @@ Users need curated, installable skills beyond the core context management skill.
 ## User Stories
 
 - [x] As a developer, I want curated skill packs organized by domain so I can install relevant skills without sifting through individual files
-- [ ] As a developer, I want to run `dreamcontext install-skill --packs` to interactively select and install skill packs
-- [ ] As a developer, I want to run `dreamcontext install-skill --packs engineering` to install a specific pack directly
+- [x] As a developer, I want to run `dreamcontext install-skill --packs` to interactively select and install skill packs
+- [x] As a developer, I want to run `dreamcontext install-skill --packs engineering` to install a specific pack directly
 - [ ] As a developer, I want to discover more skills from official Claude Code sources and community
 
 ## Acceptance Criteria
@@ -27,10 +27,10 @@ Users need curated, installable skills beyond the core context management skill.
 - [x] catalog.json manifest for CLI discovery
 - [x] Build pipeline ships skill-packs to dist/
 - [x] 473 tests still passing
-- [ ] `install-skill` CLI extended with `--packs` and `--skill` options
-- [ ] Interactive pack selection via @inquirer/prompts
-- [ ] Prerequisite resolution (warn if installing a pack without its dependencies)
-- [ ] `alwaysApply` handling during install (prompt user for base skills)
+- [x] `install-skill` CLI extended with `--packs` and `--skill` options
+- [x] Interactive pack selection via @inquirer/prompts
+- [x] Prerequisite resolution (warn if installing a pack without its dependencies)
+- [x] `alwaysApply` handling during install (shown as badge in UI)
 - [ ] Skills from official sources evaluated and added (Phase 3, user-supplied sources)
 
 ## Constraints & Decisions
@@ -83,22 +83,23 @@ skill-packs/
     SKILL.md
 ```
 
-### Phase 2: CLI Install Mechanism
+### Phase 2: CLI Install Mechanism (COMPLETE)
 
-Key files to extend:
-- `src/cli/commands/install-skill.ts` -- add `--packs` / `--skill` options
-- `skill-packs/catalog.json` -- CLI reads this to discover available packs
-- `package.json` -- `"skill-packs"` already in `files` array
-- `tsup.config.ts` -- `cpSync('skill-packs', 'dist/skill-packs')` already added
+`install-skill` extended with three new flags:
+- `--packs [names...]`: interactive @inquirer/prompts checkbox browser, or direct pack names for non-interactive use
+- `--skill <pack> <skill>`: install a single sub-skill from a pack
+- `--list`: show all available packs and their sub-skills from catalog.json
 
-Install flow:
-1. `findPackageDir('skill-packs')` to locate the catalog
-2. Read `catalog.json`, present packs via @inquirer/prompts multi-select
-3. For each selected pack: copy SKILL.md to `.claude/skills/{pack-name}/SKILL.md`
-4. Copy sub-skill files alongside (same dir or subdirs for firebase)
-5. Check prerequisites in catalog; warn if missing cross-pack deps
-6. For `alwaysApply: true` base skills, prompt user to confirm
-7. Agents: copy selected agents to `.claude/agents/`
+Implemented install flow:
+1. `findPackageDir('skill-packs')` locates the catalog
+2. `catalog.json` parsed; packs shown as checkbox list with `alwaysApply` badge
+3. Each selected pack: SKILL.md copied to `.claude/skills/{pack-name}/SKILL.md`
+4. Sub-skills copied alongside (flat dir, or subdirs for firebase references)
+5. Cross-pack dependency check; warns if prerequisite pack is missing
+6. Related agents copied to `.claude/agents/`
+7. Base `install-skill` (no flags) prints hint about available packs after install
+
+Interactive mode: "Install skill packs" and "List skill packs" entries added to Setup menu.
 
 ## Notes
 
@@ -107,6 +108,14 @@ Install flow:
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
+
+### 2026-03-24 - Phase 2 complete: CLI install mechanism
+- `install-skill` extended with `--packs`, `--skill`, `--list` flags
+- Interactive checkbox browser, cross-pack dependency warnings, agent install
+- "Install skill packs" and "List skill packs" added to interactive mode Setup menu
+- Base install-skill now hints about available packs after install
+- 17 new integration tests, 490 total passing
+- README, DEEP-DIVE, CHANGELOG.md all updated; pushed to GitHub
 
 ### 2026-03-24 - Level 2 complete: brand-voice pack + reviewer agent
 - Added brand-voice pack: 3 skills + 6 references

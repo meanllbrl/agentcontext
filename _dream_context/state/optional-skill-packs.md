@@ -26,8 +26,8 @@ Users of dreamcontext need curated, high-quality skills beyond the core context 
 ## User Stories
 
 - [x] As a developer, I want curated skill packs organized by domain so I can install relevant skills without sifting through individual files
-- [ ] As a developer, I want to run `dreamcontext install-skill --packs` to interactively select and install optional skill packs
-- [ ] As a developer, I want to run `dreamcontext install-skill --packs engineering` to install a specific pack directly
+- [x] As a developer, I want to run `dreamcontext install-skill --packs` to interactively select and install optional skill packs
+- [x] As a developer, I want to run `dreamcontext install-skill --packs engineering` to install a specific pack directly
 - [ ] As a developer, I want to discover more skills from official Claude Code sources and community
 
 ## Acceptance Criteria
@@ -38,10 +38,10 @@ Users of dreamcontext need curated, high-quality skills beyond the core context 
 - [x] catalog.json manifest for CLI discovery
 - [x] Build pipeline ships skill-packs to dist/
 - [x] 473 tests still passing
-- [ ] `install-skill` CLI command extended with `--packs` and `--skill` options
-- [ ] Interactive pack selection via @inquirer/prompts
-- [ ] Prerequisite resolution (warn if installing a pack without its dependencies)
-- [ ] `alwaysApply` handling during install (prompt user for base skills)
+- [x] `install-skill` CLI command extended with `--packs` and `--skill` options
+- [x] Interactive pack selection via @inquirer/prompts
+- [x] Prerequisite resolution (warn if installing a pack without its dependencies)
+- [x] `alwaysApply` handling during install (shown as badge in UI)
 - [ ] Skills from official sources (Anthropic, community) evaluated and added
 
 ## Constraints & Decisions
@@ -126,21 +126,24 @@ skill-packs/                              # 42 files total
     quality-assurance.md                  # Content/guideline validation [brand-voice]
 ```
 
-### Key Files for Phase 2 (CLI)
+### Phase 2: CLI Install Mechanism (COMPLETE)
 
-- `src/cli/commands/install-skill.ts` - Extend with `--packs` / `--skill` options
-- `skill-packs/catalog.json` - CLI reads this to discover available packs
-- `package.json` - `"skill-packs"` already in `files` array
-- `tsup.config.ts` - `cpSync('skill-packs', 'dist/skill-packs')` already added
+`install-skill` extended with:
+- `--packs [names...]`: interactive checkbox browser or direct pack names
+- `--skill <pack> <skill>`: install individual sub-skill
+- `--list`: show available packs and sub-skills from catalog
 
-### Install Flow Design (Phase 2)
+Install flow implemented:
+1. `findPackageDir('skill-packs')` locates the catalog
+2. `catalog.json` read; packs presented via @inquirer/prompts checkbox
+3. Each selected pack: copies SKILL.md to `.claude/skills/{pack-name}/SKILL.md`
+4. Sub-skills copied alongside (same dir or subdirs for firebase refs)
+5. Cross-pack dependency warnings (e.g., brand-voice requires design)
+6. `alwaysApply: true` base skills shown as badge in UI
+7. Related agents copied to `.claude/agents/`
+8. Base `install-skill` (without --packs) now hints about available packs
 
-1. `findPackageDir('skill-packs')` to locate the catalog
-2. Read `catalog.json`, present packs via @inquirer/prompts multi-select
-3. For each selected pack: copy SKILL.md to `.claude/skills/{pack-name}/SKILL.md`
-4. Copy sub-skill files alongside (same directory or subdirs for firebase)
-5. Check prerequisites in catalog; warn if missing cross-pack deps
-6. For `alwaysApply: true` base skills, prompt user to confirm
+17 new integration tests, 490 total passing.
 
 ### Source Skills
 
@@ -152,16 +155,18 @@ brand-voice-enforcement, discover-brand, guideline-generation, reviewer agent, d
 
 ## Notes
 
-- Sleep debt is 5 at end of this session. Consolidate next session.
 - Phase 3 (more skills from official sources) depends on user providing those sources.
-- The user wants skills to follow the system-prompts skill's standards when creating new ones.
-- The user prefers "copy, not rewrite" for existing skill content.
-- Consider: should the CLI also register skills in Claude Code's settings.json (like hooks are registered by install-skill)?
+- New skills should follow the system-prompts skill's formatting standards.
+- User preference: "copy, not rewrite" for existing skill content.
+- Open question: should the CLI also register skills in Claude Code's settings.json (like hooks are registered by install-skill)?
 
 ## Changelog
 <!-- LIFO: newest entry at top -->
 
 
+
+### 2026-03-24 - Session Update
+- Phase 2 CLI complete. install-skill extended with --packs (interactive checkbox browser + direct pack names), --skill (individual sub-skill install), --list (show available packs). Cross-pack dependency warnings, related agent installation, firebase reference directory copying, base-pack-missing warnings. 'Install skill packs' and 'List skill packs' added to interactive mode Setup menu. Core install-skill now hints about available optional packs after base install. 17 new integration tests, 490 total passing. README updated (skill packs section + command reference). DEEP-DIVE updated (architecture section + 2 design tradeoffs). CHANGELOG.md updated. Committed and pushed to GitHub (111 files, rebrand + skill-packs CLI).
 ### 2026-03-24 - Session Update
 - 2026-03-24: Level 2 complete. Added brand-voice pack (3 skills + 6 references) and 6 optional agents (reviewer + 5 brand-voice). Agents separated into skill-packs/agents/ (flat). catalog.json updated with top-level agents array. 42 files total in skill-packs/. Project also renamed from agentcontext to dreamcontext in same sessions. Phase 1 + Level 2 done; Phase 2 (CLI install mechanism) is next.
 ### 2026-03-24 - Level 2 skills added: brand-voice pack + reviewer agent

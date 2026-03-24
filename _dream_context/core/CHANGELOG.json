@@ -1,6 +1,20 @@
 [
   {
     "date": "2026-03-24",
+    "type": "feat",
+    "scope": "src/cli/commands/install-skill.ts, src/cli/interactive.ts, tests/integration/",
+    "description": "skill-packs CLI Phase 2: install-skill extended with --packs (interactive @inquirer/prompts checkbox browser or direct pack names), --skill <pack> <skill> (individual sub-skill install), --list (catalog discovery). Cross-pack dependency warnings. Related agents copied to .claude/agents/. Firebase reference directories copied intact. alwaysApply:true shown as badge. Base install-skill hints about available packs post-install. 'Install skill packs' and 'List skill packs' added to interactive Setup menu. 17 new integration tests, 490 total passing. README + DEEP-DIVE updated.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-24",
+    "type": "fix",
+    "scope": "Claude Code hooks (user settings)",
+    "description": "Remove 7 duplicate agentcontext hooks that remained registered after rebrand to dreamcontext. Old hooks were failing on every Claude Code event since the agentcontext binary no longer exists.",
+    "breaking": false
+  },
+  {
+    "date": "2026-03-24",
     "type": "refactor",
     "scope": "package.json, src/, agents/, skill/, skill-packs/, dashboard/, tests/, README.md, CHANGELOG.md, DEEP-DIVE.md, _dream_context/",
     "description": "Rebrand from agentcontext to dreamcontext. Package name: agentcontext -> dreamcontext. CLI binary: agentcontext -> dreamcontext. GitHub repo and local folder renamed accordingly. Agent files renamed: agentcontext-explore.md -> dreamcontext-explore.md, agentcontext-initializer.md -> dreamcontext-initializer.md, agentcontext-rem-sleep.md -> dreamcontext-rem-sleep.md. Context directory renamed: _agent_context/ -> _dream_context/. All code, tests, skill/SKILL.md, agent files, dashboard, README, CHANGELOG, DEEP-DIVE updated. Sleeping cat image added (public/image/dreamcontext.png). Banner script updated. 473 tests passing.",
